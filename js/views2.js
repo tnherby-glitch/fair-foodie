@@ -1,32 +1,153 @@
 /* Views: map, feed, notifications, profile, vendor dashboard, admin console */
 /* global S, save, uid, me, getUser, getFood, getVendor, getList, getReview, foodReviews, foodRating, listCountForFood, trendingFoods, notify, myNotifications, logActivity, esc, timeAgo, toast, pushToast, openModal, closeModal, pups, ratingLine, avatarHtml, userName, foodPills, foodCardHtml, updateBell, updateAvatarBtn, readImage, render, resetState, avatarInline */
 
-/* ================= MAP ================= */
+/* ================= MAP (real fairgrounds grid + street routing) ================= */
 const mapState = { listId: '', vendorSel: '', amen: { restroom: true, atm: false, firstaid: false } };
-const ENTRANCE = { x: 400, y: 578 };
+
+/* Street grid mirrors the real MN State Fairgrounds: north–south streets and
+   east–west avenues. Vendor coordinates in data.js sit on these lines. */
+/* Order & building zones follow the fair's own location addresses:
+   Underwood is the central spine (Cooper just east, Cosgrove far east);
+   the livestock/ag row — Coliseum, Cattle Barn, Ag-Hort, Dairy — sits SOUTH
+   near Como Ave; the North End & Midway sit north. */
+const STREETS = {
+  vert: [
+    { x: 70,  name: 'Snelling Ave' }, { x: 160, name: 'Liggett St' },
+    { x: 250, name: 'Chambers St' },  { x: 335, name: 'Clough St' },
+    { x: 415, name: 'Nelson St' },    { x: 500, name: 'Underwood St' },
+    { x: 600, name: 'Cooper St' },    { x: 700, name: 'Cosgrove St' },
+  ],
+  horiz: [
+    { y: 90,  name: 'Randall Ave' }, { y: 175, name: 'Wright Ave' },
+    { y: 265, name: 'Dan Patch Ave' }, { y: 355, name: 'Carnes Ave' },
+    { y: 450, name: 'Judson Ave' },  { y: 555, name: 'Murphy Ave' },
+  ],
+};
+const XS = STREETS.vert.map(s => s.x);
+const YS = STREETS.horiz.map(s => s.y);
+const ENTRANCE = { x: 70, y: 450 };   // Main Gate / transit hub, SW at Snelling
+const MPP = 1.55;                      // meters per pixel (~1 km across)
+const WALK = 74;                       // meters/minute, fair-crowd pace
+
+const BUILDINGS = [
+  { name: 'Grandstand',    x: 85,  y: 182, w: 175, h: 148, fill: '#efeae0', stroke: '#e2ddce' },
+  { name: 'West End',      x: 85,  y: 360, w: 110, h: 82,  fill: '#ece7db', stroke: '#ddd7c6' },
+  { name: 'Food Bldg',     x: 505, y: 272, w: 90,  h: 80,  fill: '#efe9dc', stroke: '#ded6bd' },
+  { name: 'Mighty Midway', x: 250, y: 96,  w: 165, h: 48,  fill: '#ebe6f0', stroke: '#dad3e2' },
+  { name: 'North End',     x: 505, y: 96,  w: 190, h: 48,  fill: '#e6ecf0', stroke: '#d3dde2' },
+  { name: 'Cattle Barn',   x: 240, y: 458, w: 90,  h: 92,  fill: '#eef0e5', stroke: '#dfe1d0' },
+  { name: 'Coliseum',      x: 335, y: 458, w: 78,  h: 92,  fill: '#eef0e5', stroke: '#dfe1d0' },
+  { name: 'Dairy',         x: 418, y: 458, w: 80,  h: 60,  fill: '#eef0e5', stroke: '#dfe1d0' },
+  { name: 'Int’l Bazaar',  x: 600, y: 458, w: 100, h: 92,  fill: '#eef0e5', stroke: '#dfe1d0' },
+  { name: 'Ag-Hort',       x: 600, y: 360, w: 100, h: 88,  fill: '#eef0e5', stroke: '#dfe1d0' },
+];
+
+/* Irregular fairgrounds outline (angled SW corner, stepped E side) drawn as a
+   polygon, ringed by the real color-coded parking lots for orientation. */
+const GROUNDS = '60,72 756,72 756,250 795,262 795,452 756,464 756,588 300,588 175,614 60,512';
+const PARKING = [
+  { name: 'North Purple Lot', x: 120, y: 16,  w: 300, h: 46, fill: '#e8e2f0', tc: '#6a5a8c' },
+  { name: 'North Yellow Lot', x: 430, y: 16,  w: 300, h: 46, fill: '#f2edcd', tc: '#8a7a26' },
+  { name: 'West Blue Lot',    x: 8,   y: 200,  w: 44,  h: 250, fill: '#dfe8f3', tc: '#456a8c', rot: true },
+  { name: 'Transit Hub',      x: 20,  y: 556,  w: 150, h: 100, fill: '#e2ecf2', tc: '#456a8c' },
+  { name: 'Stella-Como Lot',  x: 150, y: 606,  w: 160, h: 54, fill: '#e9e6de', tc: '#79736a' },
+  { name: 'South Red Lot',    x: 320, y: 606,  w: 300, h: 54, fill: '#f3dede', tc: '#8c3838' },
+  { name: 'East Lots',        x: 802, y: 210,  w: 34,  h: 250, fill: '#e7e6de', tc: '#69675c', rot: true },
+];
+const BOUNDS = [
+  { name: 'LARPENTEUR AVE',   x: 428, y: 10,  a: 'middle' },
+  { name: 'COMO AVE',         x: 428, y: 692, a: 'middle' },
+  { name: 'SNELLING AVE',     x: 9,   y: 150, rot: true },
+  { name: 'COMMONWEALTH AVE', x: 833, y: 150, rot: true },
+];
 
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
+/* ---- walkable street graph (intersections + segments) ---- */
+let _graph = null;
+function graph() {
+  if (_graph) return _graph;
+  const nodes = {};
+  const id = (x, y) => x + ',' + y;
+  XS.forEach(x => YS.forEach(y => { nodes[id(x, y)] = { x, y, adj: [] }; }));
+  const link = (ax, ay, bx, by) => {
+    const w = Math.hypot(ax - bx, ay - by);
+    nodes[id(ax, ay)].adj.push({ id: id(bx, by), w });
+    nodes[id(bx, by)].adj.push({ id: id(ax, ay), w });
+  };
+  YS.forEach(y => { for (let i = 1; i < XS.length; i++) link(XS[i - 1], y, XS[i], y); });
+  XS.forEach(x => { for (let i = 1; i < YS.length; i++) link(x, YS[i - 1], x, YS[i]); });
+  _graph = { nodes: nodes, id: id };
+  return _graph;
+}
+function snap(pt) {
+  const g = graph();
+  let best = null, bd = Infinity;
+  for (const nid in g.nodes) {
+    const d = Math.hypot(g.nodes[nid].x - pt.x, g.nodes[nid].y - pt.y);
+    if (d < bd) { bd = d; best = nid; }
+  }
+  return best;
+}
+/* Dijkstra shortest path between node ids -> { dist, path:[ids] } */
+function shortest(aId, bId) {
+  const g = graph();
+  const D = {}, prev = {}, done = {};
+  for (const nid in g.nodes) D[nid] = Infinity;
+  D[aId] = 0;
+  for (;;) {
+    let u = null, ud = Infinity;
+    for (const nid in g.nodes) if (!done[nid] && D[nid] < ud) { ud = D[nid]; u = nid; }
+    if (u === null || u === bId) break;
+    done[u] = true;
+    g.nodes[u].adj.forEach(e => { const nd = D[u] + e.w; if (nd < D[e.id]) { D[e.id] = nd; prev[e.id] = u; } });
+  }
+  const path = [];
+  let cur = bId;
+  while (cur !== undefined) { path.unshift(cur); if (cur === aId) break; cur = prev[cur]; }
+  return { dist: D[bId], path: path };
+}
+
+/* ---- route optimization: nearest-neighbour ordering over street distances ---- */
 function routeFor(listId) {
   const l = getList(listId);
-  if (!l) return [];
-  const stops = [];
-  const seen = {};
+  if (!l) return null;
+  const stops = [], seen = {};
   l.foodIds.forEach(fid => {
     const f = getFood(fid);
     if (f && !seen[f.vendorId]) { seen[f.vendorId] = true; stops.push(getVendor(f.vendorId)); }
   });
-  // nearest-neighbor from the main gate
-  const route = [];
-  let cur = ENTRANCE;
+  if (!stops.length) return null;
+  const g = graph();
+  const order = [], legs = [];
   const left = stops.slice();
+  let curNode = snap(ENTRANCE), curPt = ENTRANCE, meters = 0;
   while (left.length) {
-    left.sort((a, b) => dist(cur, a) - dist(cur, b));
-    const nxt = left.shift();
-    route.push(nxt);
-    cur = nxt;
+    let bi = 0, bd = Infinity, bpath = null;
+    for (let i = 0; i < left.length; i++) {
+      const r = shortest(curNode, snap(left[i]));
+      if (r.dist < bd) { bd = r.dist; bi = i; bpath = r.path; }
+    }
+    const v = left.splice(bi, 1)[0];
+    const vNode = snap(v);
+    const pts = bpath.map(nid => [g.nodes[nid].x, g.nodes[nid].y]);
+    legs.push([[curPt.x, curPt.y]].concat(pts).concat([[v.x, v.y]]));
+    meters += (bd + dist(g.nodes[vNode], v)) * MPP;
+    order.push(v);
+    curNode = vNode; curPt = v;
   }
-  return route;
+  return { order: order, legs: legs, meters: meters };
+}
+function walkMinFromGate(v) {
+  const r = shortest(snap(ENTRANCE), snap(v));
+  return Math.max(1, Math.round((r.dist + dist(graph().nodes[snap(v)], v)) * MPP / WALK));
+}
+
+function p_boundLabel(b) {
+  if (b.rot) {
+    return '<text x="' + b.x + '" y="' + b.y + '" transform="rotate(-90 ' + b.x + ' ' + b.y + ')" text-anchor="middle" font-size="9" letter-spacing="1" fill="#a29e94">' + b.name + '</text>';
+  }
+  return '<text x="' + b.x + '" y="' + b.y + '" text-anchor="' + (b.a || 'start') + '" font-size="9" letter-spacing="1" fill="#a29e94">' + b.name + '</text>';
 }
 
 function viewMap(el, params) {
@@ -34,37 +155,66 @@ function viewMap(el, params) {
   if (params.get('list')) { mapState.listId = params.get('list'); }
   const u = me();
   const myLists = S.lists.filter(l => l.ownerId === u.id || l.collaborators.includes(u.id) || (l.privacy === 'public' && l.featured));
-  const route = mapState.listId ? routeFor(mapState.listId) : [];
-  const routeIds = route.map(v => v.id);
-  const routePts = [ENTRANCE].concat(route);
-  let walkMeters = 0;
-  for (let i = 1; i < routePts.length; i++) walkMeters += dist(routePts[i - 1], routePts[i]) * 1.6; // ~1.6 m per px
-  const walkMin = Math.round(walkMeters / 75); // 75 m/min fair-crowd pace
+  const route = mapState.listId ? routeFor(mapState.listId) : null;
+  const order = route ? route.order : [];
+  const routeIds = order.map(v => v.id);
+  const walkMin = route ? Math.max(1, Math.round(route.meters / WALK)) : 0;
 
-  let svg = '<svg class="map-svg" viewBox="0 0 800 620" role="img" aria-label="Fairgrounds map with vendor locations">' +
-    '<rect width="800" height="620" fill="#f2f3ef"/>' +
-    // blocks
-    '<rect x="60" y="60" width="680" height="500" fill="#f8f9f5" stroke="#e4e6de" rx="18"/>' +
-    // streets
-    streetH(185, 'Randall Ave') + streetH(295, 'Judson Ave') + streetH(410, 'Carnes Ave') + streetH(515, 'Dan Patch Ave') +
-    streetV(140) + streetV(420) + streetV(690) +
-    // landmarks
-    '<rect x="600" y="300" width="120" height="70" fill="#eeeade" stroke="#ddd5bd" rx="8"/><text x="660" y="340" text-anchor="middle" font-size="13" fill="#8a8060">Food Bldg</text>' +
-    '<rect x="470" y="70" width="200" height="80" fill="#eae6f0" stroke="#d5cee0" rx="8"/><text x="570" y="115" text-anchor="middle" font-size="13" fill="#7d6f99">Midway</text>' +
-    '<circle cx="120" cy="120" r="38" fill="#e2ecf2" stroke="#c3d6e2"/><text x="120" y="125" text-anchor="middle" font-size="11" fill="#5b7c92">Ye Old Mill</text>' +
-    '<rect x="330" y="530" width="140" height="34" fill="#222" rx="8"/><text x="400" y="552" text-anchor="middle" font-size="13" fill="#fff" font-weight="bold">MAIN GATE</text>';
+  let svg = '<svg class="map-svg" viewBox="0 0 840 700" role="img" aria-label="Minnesota State Fairgrounds map: the irregular grounds outline with internal streets, buildings, and surrounding parking lots (North Purple, North Yellow, West Blue, South Red, Stella-Como) for orientation.">' +
+    '<defs><clipPath id="groundsClip"><polygon points="' + GROUNDS + '"/></clipPath></defs>' +
+    '<rect width="840" height="700" fill="#e8e6df"/>';
 
-  // route polyline
-  if (route.length) {
-    const ptsStr = routePts.map(p => p.x + ',' + p.y).join(' ');
-    svg += '<polyline points="' + ptsStr + '" fill="none" stroke="#e0243c" stroke-width="3.5" stroke-dasharray="8 6" stroke-linecap="round" opacity=".8"/>';
+  // parking lots + boundary avenues (drawn outside the grounds, for reference)
+  PARKING.forEach(p => {
+    const cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+    svg += '<rect x="' + p.x + '" y="' + p.y + '" width="' + p.w + '" height="' + p.h + '" rx="4" fill="' + p.fill + '" stroke="rgba(0,0,0,.06)"/>' +
+      (p.rot
+        ? '<text x="' + cx + '" y="' + cy + '" transform="rotate(-90 ' + cx + ' ' + cy + ')" text-anchor="middle" font-size="9.5" fill="' + p.tc + '">' + p.name + '</text>'
+        : '<text x="' + cx + '" y="' + (cy + 3) + '" text-anchor="middle" font-size="10" fill="' + p.tc + '">' + p.name + '</text>');
+  });
+  BOUNDS.forEach(b => {
+    svg += p_boundLabel(b);
+  });
+
+  // grounds outline (irregular shape)
+  svg += '<polygon points="' + GROUNDS + '" fill="#f8f9f5" stroke="#d8d8ce" stroke-width="1.5"/>';
+
+  // buildings (drawn under the streets)
+  BUILDINGS.forEach(b => {
+    svg += '<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" rx="6" fill="' + b.fill + '" stroke="' + b.stroke + '"/>' +
+      '<text x="' + (b.x + b.w / 2) + '" y="' + (b.y + b.h / 2 + 4) + '" text-anchor="middle" font-size="10.5" fill="#847e70">' + b.name + '</text>';
+  });
+
+  // street grid + names (clipped to the grounds outline)
+  svg += '<g clip-path="url(#groundsClip)">';
+  STREETS.horiz.forEach(s => {
+    svg += '<line x1="60" y1="' + s.y + '" x2="756" y2="' + s.y + '" stroke="#fff" stroke-width="12"/>';
+  });
+  STREETS.vert.forEach(s => {
+    svg += '<line x1="' + s.x + '" y1="72" x2="' + s.x + '" y2="588" stroke="#fff" stroke-width="11"/>';
+  });
+  svg += '</g>';
+  STREETS.horiz.forEach(s => {
+    svg += '<text x="66" y="' + (s.y - 8) + '" font-size="10" fill="#aca699">' + s.name + '</text>';
+  });
+
+  // Main Gate
+  svg += '<circle cx="' + ENTRANCE.x + '" cy="' + ENTRANCE.y + '" r="7" fill="#222"/>' +
+    '<text x="' + ENTRANCE.x + '" y="' + (ENTRANCE.y + 22) + '" text-anchor="middle" font-size="10" font-weight="bold" fill="#222">Main Gate</text>';
+
+  // route — follows the streets
+  if (route) {
+    route.legs.forEach(leg => {
+      svg += '<polyline points="' + leg.map(p => p[0] + ',' + p[1]).join(' ') +
+        '" fill="none" stroke="#c8102e" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" opacity=".92"/>';
+    });
   }
 
   // amenities
   S.amenities.forEach(a => {
     if (!mapState.amen[a.type]) return;
     a.spots.forEach(s => {
-      svg += '<text x="' + s.x + '" y="' + s.y + '" text-anchor="middle" font-size="20" aria-label="' + a.label + '">' + a.icon + '</text>';
+      svg += '<text x="' + s.x + '" y="' + (s.y + 6) + '" text-anchor="middle" font-size="17" aria-label="' + a.label + '">' + a.icon + '</text>';
     });
   });
 
@@ -72,13 +222,13 @@ function viewMap(el, params) {
   S.vendors.forEach(v => {
     const onRoute = routeIds.indexOf(v.id);
     const sel = mapState.vendorSel === v.id;
-    const color = sel ? '#222222' : (onRoute >= 0 ? '#e0243c' : '#9a938a');
-    const r = sel || onRoute >= 0 ? 15 : 10;
+    const color = sel ? '#222222' : (onRoute >= 0 ? '#c8102e' : '#b0aaa0');
+    const r = sel || onRoute >= 0 ? 13 : 8;
     svg += '<g class="map-pin" role="button" tabindex="0" aria-label="' + esc(v.name) + '" onclick="mapPick(\'' + v.id + '\')" onkeydown="if(event.key===\'Enter\')mapPick(\'' + v.id + '\')">' +
       '<circle cx="' + v.x + '" cy="' + v.y + '" r="' + r + '" fill="' + color + '" stroke="#fff" stroke-width="2.5"/>' +
       (onRoute >= 0
-        ? '<text x="' + v.x + '" y="' + (v.y + 5) + '" text-anchor="middle" font-size="14" fill="#fff" font-weight="bold">' + (onRoute + 1) + '</text>'
-        : '<circle cx="' + v.x + '" cy="' + v.y + '" r="4" fill="#fff"/>') +
+        ? '<text x="' + v.x + '" y="' + (v.y + 4) + '" text-anchor="middle" font-size="12" fill="#fff" font-weight="bold">' + (onRoute + 1) + '</text>'
+        : '') +
       '</g>';
   });
   svg += '</svg>';
@@ -95,19 +245,12 @@ function viewMap(el, params) {
     '</select>' +
     (mapState.listId ? '<button class="btn small ghost" onclick="mapState.listId=\'\';render()">Clear</button>' : '') +
     '</div>' +
-    (route.length ? '<div class="muted" style="margin-bottom:8px">🚶 Optimal route: <b>' + route.length + ' stops</b> · ~<b>' + walkMin + ' min</b> walking from Main Gate (numbered pins)</div>' : '') +
+    (route ? '<div class="muted" style="margin-bottom:8px">Optimized route: <b>' + order.length + ' stop' + (order.length > 1 ? 's' : '') + '</b> · ~<b>' + Math.round(route.meters).toLocaleString() + ' m</b> · ~<b>' + walkMin + ' min</b> walking from the Main Gate along the streets</div>' :
+      (mapState.listId ? '<div class="muted" style="margin-bottom:8px">That list has no mapped vendors yet.</div>' : '')) +
     '<div class="chip-row" style="margin:0">' +
     S.amenities.map(a => '<button class="chip ' + (mapState.amen[a.type] ? 'on' : '') + '" aria-pressed="' + mapState.amen[a.type] + '" onclick="mapState.amen.' + a.type + '=!mapState.amen.' + a.type + ';render()">' + a.icon + ' ' + a.label + '</button>').join('') +
     '</div></div></div>' +
-    (selVendor ? vendorCardHtml(selVendor, routeIds.indexOf(selVendor.id)) : '<div class="muted" style="margin:10px 4px">Tap a pin to see the vendor\'s menu. Red numbered pins are your list route.</div>');
-}
-function streetH(y, name) {
-  return '<line x1="70" y1="' + y + '" x2="730" y2="' + y + '" stroke="#fff" stroke-width="14"/>' +
-    '<line x1="70" y1="' + y + '" x2="730" y2="' + y + '" stroke="#e2e2de" stroke-width="16" opacity=".4"/>' +
-    '<text x="78" y="' + (y - 12) + '" font-size="11" fill="#9a938a">' + name + '</text>';
-}
-function streetV(x) {
-  return '<line x1="' + x + '" y1="70" x2="' + x + '" y2="550" stroke="#fff" stroke-width="12" opacity=".9"/>';
+    (selVendor ? vendorCardHtml(selVendor, routeIds.indexOf(selVendor.id)) : '<div class="muted" style="margin:10px 4px">Tap a pin for a vendor\'s menu. Pick a list above to plot the shortest walking route (red, numbered).</div>');
 }
 function mapPick(vid) {
   mapState.vendorSel = mapState.vendorSel === vid ? '' : vid;
@@ -120,7 +263,7 @@ function vendorCardHtml(v, routeIdx) {
     (routeIdx >= 0 ? '<span class="pill new">Stop ' + (routeIdx + 1) + '</span>' : '') + '</div>' +
     '<div class="muted" style="margin:4px 0">' + esc(v.desc) + ' · Open ' + esc(v.hours) + '</div>' +
     (v.specials ? '<div class="vendor-reply">Today: ' + esc(v.specials) + '</div>' : '') +
-    '<div class="muted" style="margin:8px 0 4px">Est. wait <b>' + waitEstimate(v) + ' min</b> · ' + Math.round(dist(ENTRANCE, v) * 1.6 / 75) + ' min walk from Main Gate</div>' +
+    '<div class="muted" style="margin:8px 0 4px">Est. wait <b>' + waitEstimate(v) + ' min</b> · <b>' + walkMinFromGate(v) + ' min</b> walk from Main Gate</div>' +
     menu.map(f => '<a class="row between" style="padding:7px 0;border-top:1px solid var(--line);color:inherit" href="#/food/' + f.id + '">' +
       '<span>' + f.emoji + ' ' + esc(f.name) + (f.soldOut ? ' <span class="pill soldout">SOLD OUT</span>' : '') + '</span>' +
       '<span class="muted">$' + f.price.toFixed(2).replace(/\.00$/, '') + '</span></a>').join('') +
@@ -219,7 +362,7 @@ function viewProfile(el) {
     '<div class="stat"><b>' + u.followers.length + '</b><span>Followers</span></div>' +
     '<div class="stat"><b>' + u.following.length + '</b><span>Following</span></div>' +
     '<div class="stat"><b>' + myReviews.length + '</b><span>Reviews</span></div>' +
-    '<div class="stat"><b>' + (avg ? avg.toFixed(1) + '🌭' : '—') + '</b><span>Avg rating</span></div>' +
+    '<div class="stat"><b>' + (avg ? avg.toFixed(1) + ' ' + pupOne(true) : '—') + '</b><span>Avg rating</span></div>' +
     '</div>' +
     '<div class="row" style="justify-content:center;flex-wrap:wrap">' +
     '<button class="btn small secondary" onclick="openEditProfile()">✏️ Edit profile</button>' +
@@ -290,7 +433,7 @@ function openInfluencerStats() {
     '<div class="stat-row">' +
     '<div class="stat"><b>' + u.followers.length + '</b><span>Followers</span></div>' +
     '<div class="stat"><b>' + featured.length + '</b><span>Featured lists</span></div>' +
-    '<div class="stat"><b>' + avg + '🌭</b><span>Avg rating given</span></div>' +
+    '<div class="stat"><b>' + avg + (avg === '—' ? '' : ' ' + pupOne(true)) + '</b><span>Avg rating given</span></div>' +
     '</div>' +
     '<table class="table"><tr><th>List</th><th>Score</th><th>Views</th><th>Likes</th><th>Comments</th></tr>' +
     myLists.map(l => '<tr><td>' + esc(l.name) + '</td><td>' + (listRating(l).count ? listRating(l).avg.toFixed(1) + ' (' + listRating(l).count + ')' : '—') + '</td><td>' + l.views.toLocaleString() + '</td><td>' + l.likes.length + '</td><td>' + l.comments.length + '</td></tr>').join('') +
@@ -364,7 +507,7 @@ function viewVendorDash(el) {
       const r = foodRating(f.id);
       return '<div class="card">' +
         '<div class="row between"><b>' + f.emoji + ' ' + esc(f.name) + '</b><span class="muted">$' + f.price.toFixed(2) + '</span></div>' +
-        '<div class="muted" style="margin:4px 0">' + (r.count ? r.avg.toFixed(1) + '🌭 avg · ' + r.count + ' reviews' : 'No reviews yet') + ' · on ' + listCountForFood(f.id) + ' lists</div>' +
+        '<div class="muted" style="margin:4px 0">' + (r.count ? r.avg.toFixed(1) + ' Pup avg · ' + r.count + ' reviews' : 'No reviews yet') + ' · on ' + listCountForFood(f.id) + ' lists</div>' +
         '<div class="row" style="flex-wrap:wrap">' +
         '<button class="btn small ' + (f.soldOut ? 'secondary' : 'ghost') + '" aria-pressed="' + f.soldOut + '" onclick="toggleSoldOut(\'' + f.id + '\')">' + (f.soldOut ? 'Sold out — tap to restock' : 'Mark sold out') + '</button>' +
         '<button class="btn small ghost" onclick="openEditFood(\'' + f.id + '\')">Edit item</button>' +
@@ -529,7 +672,7 @@ function adminBodyHtml() {
       '<div class="card"><h3 style="margin:0 0 6px;font-size:14px">Top searches</h3><div class="chip-row">' +
       S.analytics.topSearches.map(t => '<span class="chip">' + esc(t) + '</span>').join('') + '</div></div>' +
       '<div class="card"><h3 style="margin:0 0 6px;font-size:14px">Most reviewed foods</h3><table class="table">' +
-      mostReviewed.map(f => '<tr><td>' + f.emoji + ' ' + esc(f.name) + '</td><td>' + foodReviews(f.id).length + ' reviews</td><td>' + (foodRating(f.id).avg || 0).toFixed(1) + '🌭</td></tr>').join('') +
+      mostReviewed.map(f => '<tr><td>' + f.emoji + ' ' + esc(f.name) + '</td><td>' + foodReviews(f.id).length + ' reviews</td><td>' + (foodRating(f.id).avg || 0).toFixed(1) + ' ' + pupOne(true) + '</td></tr>').join('') +
       '</table></div>' +
       '<button class="btn secondary block" onclick="adminExport()">⬇️ Export data (JSON)</button>';
   }

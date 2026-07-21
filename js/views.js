@@ -17,7 +17,7 @@ function viewOnboarding(el) {
   const emojis = ['😀', '🤠', '🧑‍🌾', '🦆', '🐄', '🌽', '🧀', '🎡', '🎪', '🦄'];
   el.innerHTML =
     '<div class="onboard">' +
-    '<div class="big-ico" aria-hidden="true">🌭</div>' +
+    '<div class="onboard-mark" aria-hidden="true">' + pupSvg() + '</div>' +
     '<h1>Fair Foodie Guide</h1>' +
     '<p class="muted">Search, rate, and map the best eats at the Great Minnesota Get-Together.</p>' +
     '<div class="card" style="text-align:left">' +
@@ -40,9 +40,9 @@ function viewOnboarding(el) {
     '</div>' +
     '<div class="muted" style="margin:14px 0 6px">Just exploring? Jump in as a demo persona:</div>' +
     '<div class="chip-row" style="justify-content:center">' +
-    '<button class="chip" onclick="obDemo(\'u_inf1\')">🎤 Influencer</button>' +
+    '<button class="chip" onclick="obDemo(\'u_inf2\')">🌟 Allison (influencer)</button>' +
     '<button class="chip" onclick="obDemo(\'u_blog1\')">📝 Blogger</button>' +
-    '<button class="chip" onclick="obDemo(\'u_vend1\')">🌭 Vendor</button>' +
+    '<button class="chip" onclick="obDemo(\'u_vend1\')">🏪 Vendor</button>' +
     '<button class="chip" onclick="obDemo(\'u_admin\')">🎡 Admin</button>' +
     '</div></div>';
 }
@@ -119,7 +119,7 @@ function viewHome(el) {
         '<div class="pcard-body">' +
         '<div class="sub" style="font-size:11px;letter-spacing:.3px;margin:0 0 2px">Sponsored' + (l.id === S.defaultListId ? ' · Fair pick' : '') + '</div>' +
         '<div class="pcard-top"><span class="pcard-title">' + esc(l.name) + '</span>' +
-        (listRating(l).count ? '<span class="rate">🌭 ' + listRating(l).avg.toFixed(1) + '</span>' : '') + '</div>' +
+        (listRating(l).count ? '<span class="rate">' + pupOne(true) + ' ' + listRating(l).avg.toFixed(1) + '</span>' : '') + '</div>' +
         '<div class="sub">' + l.foodIds.length + ' foods · ' + l.views.toLocaleString() + ' views</div>' +
         '<div class="feat-owner">' + avatarHtml(owner, 'av') + '<span>' + userName(owner) + '</span></div>' +
         '</div></a>';
@@ -134,7 +134,8 @@ function viewHome(el) {
 }
 
 /* ================= SEARCH ================= */
-const searchState = { q: '', onlyNew: false, cat: '', diets: [], price: '', minRating: 0 };
+const searchState = { q: '', onlyNew: false, cat: '', diets: [], price: '', minRating: 0, page: 1, _sig: '' };
+const SEARCH_PAGE = 24; // render results a page at a time — the catalog is ~1,600 foods
 
 function viewSearch(el, params) {
   if (params.get('new') === '1') { searchState.onlyNew = true; }
@@ -160,7 +161,7 @@ function viewSearch(el, params) {
     '<option value="high" ' + (searchState.price === 'high' ? 'selected' : '') + '>Over $10</option>' +
     '</select>' +
     '<select aria-label="Minimum rating" style="width:auto;padding:6px 10px;border-radius:999px;font-size:12.5px" onchange="searchState.minRating=+this.value;render()">' +
-    [0, 3, 4, 4.5].map(r => '<option value="' + r + '" ' + (searchState.minRating === r ? 'selected' : '') + '>' + (r ? '🌭 ' + r + '+' : 'Any rating') + '</option>').join('') +
+    [0, 3, 4, 4.5].map(r => '<option value="' + r + '" ' + (searchState.minRating === r ? 'selected' : '') + '>' + (r ? r + '+ Pups' : 'Any rating') + '</option>').join('') +
     '</select>' +
     '</div>' +
     '<div id="searchResults">' + searchResultsHtml() + '</div>';
@@ -206,22 +207,52 @@ function matchFilters(f) {
   }
   return true;
 }
+const BROWSE_CATS = ['Deep Fried', 'On a Stick', 'Sweet', 'Savory', 'Drinks', 'Dairy'];
+const CAT_ICON = { 'Deep Fried': '🍤', 'On a Stick': '🍢', 'Sweet': '🍰', 'Savory': '🧀', 'Drinks': '🥤', 'Dairy': '🥛' };
+
+function searchSig() {
+  return [searchState.q.trim(), searchState.onlyNew, searchState.cat, searchState.diets.join(','), searchState.price, searchState.minRating].join('|');
+}
+function loadMoreSearch() {
+  searchState.page++;
+  document.getElementById('searchResults').innerHTML = searchResultsHtml();
+}
 function searchResultsHtml() {
-  const results = S.foods.filter(matchFilters);
   const anyFilter = searchState.q.trim() || searchState.onlyNew || searchState.cat || searchState.diets.length || searchState.price || searchState.minRating;
-  let h = '';
+  /* reset paging whenever the query/filters change */
+  const sig = searchSig();
+  if (sig !== searchState._sig) { searchState._sig = sig; searchState.page = 1; }
+
+  /* No filters: don't dump 1,600 cards — offer a search-first browse experience. */
   if (!anyFilter) {
-    h += '<div class="section-title"><span>Popular searches</span></div><div class="chip-row">' +
-      S.analytics.topSearches.map(t => '<button class="chip" onclick="searchState.q=\'' + esc(t) + '\';render()">' + esc(t) + '</button>').join('') + '</div>';
+    let h = '<div class="section-title"><span>Popular searches</span></div><div class="chip-row">' +
+      S.analytics.topSearches.map(t => '<button class="chip" onclick="searchState.q=\'' + esc(t).replace(/'/g, "\\'") + '\';render()">' + esc(t) + '</button>').join('') + '</div>';
+    h += '<div class="section-title"><span>Browse by category</span></div>' +
+      '<div class="grid2">' + BROWSE_CATS.map(c => {
+        const count = S.foods.filter(f => f.cats.includes(c)).length;
+        return '<button class="cat-tile" onclick="searchState.cat=\'' + c + '\';render()">' +
+          '<span class="cat-ico" aria-hidden="true">' + CAT_ICON[c] + '</span>' +
+          '<span class="cat-name">' + c + '</span><span class="sub">' + count + ' foods</span></button>';
+      }).join('') + '</div>' +
+      '<div class="muted" style="text-align:center;margin:14px 2px 0">' + S.foods.length.toLocaleString() + ' foods across ' + S.vendors.length + ' stands — search or pick a category to dig in.</div>';
+    return h;
   }
+
+  const results = S.foods.filter(matchFilters);
+  let h = '';
   /* sponsored influencer lists ride above organic results, like search ads */
   const sp = sponsoredLists().filter(l => l.ownerId !== S.currentUserId).slice(0, 2);
   if (sp.length) {
     h += '<div class="muted" style="margin:12px 2px 6px;font-size:11.5px;letter-spacing:.3px"><b style="color:var(--ink)">Sponsored</b> · influencer lists</div>' +
       sp.map(l => listRowHtml(l, { sponsored: true })).join('');
   }
-  h += '<div class="muted" style="margin:12px 2px 4px">' + results.length + ' food' + (results.length === 1 ? '' : 's') + '</div>';
-  h += '<div class="grid2">' + results.map(foodCardHtml).join('') + '</div>';
+  const shown = Math.min(results.length, searchState.page * SEARCH_PAGE);
+  h += '<div class="muted" style="margin:12px 2px 4px">' + results.length.toLocaleString() + ' food' + (results.length === 1 ? '' : 's') +
+    (results.length > shown ? ' · showing ' + shown : '') + '</div>';
+  h += '<div class="grid2">' + results.slice(0, shown).map(foodCardHtml).join('') + '</div>';
+  if (results.length > shown) {
+    h += '<button class="btn ghost block" style="margin-top:14px" onclick="loadMoreSearch()">Show more (' + (results.length - shown).toLocaleString() + ' more)</button>';
+  }
   if (!results.length) h += '<div class="empty"><span class="big">🫙</span>Nothing matches those filters.<br>Loosen up — it\'s the fair!</div>';
   return h;
 }
@@ -335,7 +366,7 @@ function openRateModal(foodId) {
   openModal(
     '<h2>Rate ' + esc(f.name) + '</h2>' +
     '<div class="pup-input" id="pupIn" role="radiogroup" aria-label="Rating in Pronto Pups">' +
-    [1, 2, 3, 4, 5].map(i => '<button type="button" role="radio" aria-checked="false" aria-label="' + i + ' Pronto Pup' + (i > 1 ? 's' : '') + '" onclick="setRate(' + i + ')">🌭</button>').join('') +
+    [1, 2, 3, 4, 5].map(i => '<button type="button" role="radio" aria-checked="false" aria-label="' + i + ' Pronto Pup' + (i > 1 ? 's' : '') + '" onclick="setRate(' + i + ')">' + pupSvg() + '</button>').join('') +
     '</div>' +
     '<div class="muted" id="rateHint" style="margin:4px 0 10px">Tap the pups! 1 = skip it · 5 = fair legend</div>' +
     '<label class="field">Your review <span class="muted">(10–500 characters)</span>' +
@@ -344,7 +375,7 @@ function openRateModal(foodId) {
     '<div class="field" style="font-weight:700;font-size:13px">Photos <span class="muted">(up to 3)</span><br>' +
     '<input type="file" accept="image/png,image/jpeg" onchange="addRatePhoto(this)" aria-label="Add review photo"></div>' +
     '<div class="review-photos" id="ratePhotoRow"></div>' +
-    '<button class="btn block" onclick="submitReview(\'' + foodId + '\')">Post review 🌭</button>',
+    '<button class="btn block" onclick="submitReview(\'' + foodId + '\')">Post review</button>',
     root => {
       root.querySelector('#revText').addEventListener('input', e => {
         root.querySelector('#charCount').textContent = e.target.value.length + ' / 500';
@@ -370,7 +401,7 @@ function addRatePhoto(input) {
 }
 function submitReview(foodId) {
   const text = document.getElementById('revText').value.trim();
-  if (!rateVal) { toast('Pick a Pronto Pup rating first! 🌭'); return; }
+  if (!rateVal) { toast('Pick a Pronto Pup rating first'); return; }
   if (text.length < 10) { toast('Review must be at least 10 characters'); return; }
   const u = me();
   const r = { id: uid('r'), foodId, userId: u.id, rating: rateVal, text, photos: ratePhotos.slice(), likes: [], comments: [], reported: false, removed: false, ts: Date.now(), vendorResponse: null };
@@ -379,10 +410,10 @@ function submitReview(foodId) {
   /* PRD: Blogger badge after 25 quality reviews */
   if (u.qualityReviews >= 25 && !u.badges.includes('Blogger')) { u.badges.push('Blogger'); pushToast('🏅 Badge earned: Blogger!'); }
   const f = getFood(foodId);
-  logActivity(u.id, 'reviewed ' + f.name + ' — ' + rateVal + ' Pups 🌭', '#/food/' + foodId);
-  u.followers.forEach(fid => notify(fid, u.name + ' reviewed ' + f.name + ' (' + rateVal + ' 🌭)', '#/food/' + foodId));
+  logActivity(u.id, 'reviewed ' + f.name + ' — ' + rateVal + ' Pups', '#/food/' + foodId);
+  u.followers.forEach(fid => notify(fid, u.name + ' reviewed ' + f.name + ' (' + rateVal + ' Pups)', '#/food/' + foodId));
   const v = getVendor(f.vendorId);
-  if (v && v.ownerUserId) notify(v.ownerUserId, 'New ' + rateVal + '🌭 review on ' + f.name, '#/food/' + foodId);
+  if (v && v.ownerUserId) notify(v.ownerUserId, 'New ' + rateVal + '-Pup review on ' + f.name, '#/food/' + foodId);
   save(); closeModal(); render();
   toast('Review posted — thanks for feeding the community! 🎪');
 }
@@ -430,7 +461,7 @@ function listRowHtml(l, opts) {
   return '<a class="card list-row" href="#/list/' + l.id + '">' +
     (first ? photoHtml(first, 'thumb') : '<span class="list-ico" aria-hidden="true">📋</span>') +
     '<span class="grow"><b>' + esc(l.name) + (l.featured ? ' <span class="vbadge" title="Featured">★</span>' : '') + '</b>' +
-    '<div class="muted">' + (listRating(l).count ? '🌭 ' + listRating(l).avg.toFixed(1) + ' · ' : '') + userName(owner) + ' · ' + l.foodIds.length + ' foods · ' + l.likes.length + ' likes</div></span>' +
+    '<div class="muted">' + (listRating(l).count ? pupOne(true) + ' ' + listRating(l).avg.toFixed(1) + ' · ' : '') + userName(owner) + ' · ' + l.foodIds.length + ' foods · ' + l.likes.length + ' likes</div></span>' +
     (opts.sponsored ? '<span class="pill">Sponsored</span>' : '<span class="pill privacy">' + l.privacy + '</span>') + '</a>';
 }
 function avatarInline(u) {
@@ -492,7 +523,7 @@ function viewListDetail(el, id) {
     '<div class="row between"><h1 style="font-size:21px;font-weight:700">' + esc(l.name) + (l.featured ? ' <span class="vbadge" title="Featured">★</span>' : '') + '</h1>' +
     '<span class="pill privacy">' + l.privacy + '</span></div>' +
     '<div class="muted" style="margin:6px 0 12px">' +
-    (listRating(l).count ? '🌭 <b style="color:var(--ink)">' + listRating(l).avg.toFixed(1) + '</b> (' + listRating(l).count + ') · ' : '') +
+    (listRating(l).count ? pupOne(true) + ' <b style="color:var(--ink)">' + listRating(l).avg.toFixed(1) + '</b> (' + listRating(l).count + ') · ' : '') +
     userName(owner) + ' · ' + foods.length + ' foods · est. $' + total.toFixed(2) + ' · ' + l.views.toLocaleString() + ' views</div>' +
     '<div class="row" style="flex-wrap:wrap">' +
     '<button class="btn small" onclick="location.hash=\'#/map?list=' + l.id + '\'">Map route</button>' +
@@ -511,7 +542,7 @@ function viewListDetail(el, id) {
       '<span class="pup-input" role="radiogroup" aria-label="Rate this list in Pronto Pups">' +
       [1, 2, 3, 4, 5].map(i =>
         '<button type="button" role="radio" aria-checked="' + ((l.ratings || {})[u.id] === i) + '" class="' + (i <= ((l.ratings || {})[u.id] || 0) ? 'on' : '') + '" style="font-size:22px" ' +
-        'aria-label="' + i + ' Pronto Pup' + (i > 1 ? 's' : '') + '" onclick="rateList(\'' + l.id + '\',' + i + ')">🌭</button>').join('') +
+        'aria-label="' + i + ' Pronto Pup' + (i > 1 ? 's' : '') + '" onclick="rateList(\'' + l.id + '\',' + i + ')">' + pupSvg() + '</button>').join('') +
       '</span></div>' : '') +
 
     (foods.length ? foods.map(f =>
@@ -541,7 +572,7 @@ function rateList(id, n) {
   const had = l.ratings[u.id];
   l.ratings[u.id] = n;
   if (!had) {
-    notify(l.ownerId, u.name + ' rated your list "' + l.name + '" ' + n + ' 🌭', '#/list/' + id);
+    notify(l.ownerId, u.name + ' rated your list "' + l.name + '" ' + n + ' Pups', '#/list/' + id);
     logActivity(u.id, 'rated the list "' + l.name + '" — ' + n + ' Pups', '#/list/' + id);
   }
   save(); render();

@@ -49,18 +49,28 @@ function closeModal() {
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-/* Pronto Pup rating display */
+/* Pronto Pup rating display — a battered corn dog on a stick, drawn as SVG */
+function pupSvg() {
+  return '<svg class="pup-ico" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<rect class="pup-stick" x="11.1" y="13.5" width="1.8" height="9.5" rx=".9"/>' +
+    '<rect class="pup-body" x="5.4" y="1.2" width="13.2" height="15.8" rx="6.6"/>' +
+    '<path class="pup-glaze" d="M8 5.4c1.6 1.1 6.4 1.1 8 0M8 8.2c1.6 1.1 6.4 1.1 8 0M8 11c1.6 1.1 6.4 1.1 8 0" />' +
+    '</svg>';
+}
+function pupOne(on) {
+  return '<span class="pup ' + (on ? 'on' : 'off') + '">' + pupSvg() + '</span>';
+}
 function pups(n, opts) {
   opts = opts || {};
   let h = '<span class="pups' + (opts.big ? ' big' : '') + '" role="img" aria-label="' +
     (n ? n.toFixed(1) + ' out of 5 Pronto Pups' : 'Not yet rated') + '">';
-  for (let i = 1; i <= 5; i++) h += '<span class="' + (i <= Math.round(n) ? 'on' : 'off') + '" aria-hidden="true">🌭</span>';
+  for (let i = 1; i <= 5; i++) h += pupOne(i <= Math.round(n));
   return h + '</span>';
 }
 function ratingLine(foodId) {
   const r = foodRating(foodId);
   if (!r.count) return '<span class="rating-line"><span class="muted">No ratings yet</span></span>';
-  return '<span class="rating-line">🌭 <b>' + r.avg.toFixed(1) + '</b> <span class="muted">· ' + r.count + ' review' + (r.count > 1 ? 's' : '') + '</span></span>';
+  return '<span class="rating-line">' + pupOne(true) + ' <b>' + r.avg.toFixed(1) + '</b> <span class="muted">· ' + r.count + ' review' + (r.count > 1 ? 's' : '') + '</span></span>';
 }
 
 function avatarHtml(user, cls) {
@@ -91,12 +101,12 @@ function foodPhoto(f) {
 }
 
 const CAT_GRADS = {
-  'Deep Fried': ['#f6e7c9', '#e7c286'],
-  'On a Stick': ['#f5e0cd', '#dfb08a'],
-  'Sweet':      ['#fbe3e8', '#f0b6c4'],
-  'Savory':     ['#ece6d8', '#cfc2a8'],
-  'Drinks':     ['#ddedf4', '#aed2e2'],
-  'Dairy':      ['#f3f1ea', '#dcd6c6'],
+  'Deep Fried': ['#ece3d2', '#d8c6a6'],
+  'On a Stick': ['#e9ded0', '#d0bda1'],
+  'Sweet':      ['#ebe0dd', '#d6c1bd'],
+  'Savory':     ['#e8e4da', '#cabfa8'],
+  'Drinks':     ['#e0e6e7', '#bfccce'],
+  'Dairy':      ['#eae6dc', '#cfc8b5'],
 };
 /* image precedence: official (vendor/admin) hero -> latest guest photo -> placeholder */
 function photoHtml(f, cls) {
@@ -112,11 +122,11 @@ function photoHtml(f, cls) {
     badges + '</div>';
 }
 
-/* compact Airbnb-style rating: "🌭 4.5" or "New" */
+/* compact rating: one pup + score */
 function ratingCompact(foodId) {
   const r = foodRating(foodId);
-  return '<span class="rate" aria-label="' + (r.count ? r.avg.toFixed(1) + ' out of 5 Pronto Pups' : 'Not yet rated') + '">🌭 ' +
-    (r.count ? r.avg.toFixed(1) : '—') + '</span>';
+  return '<span class="rate" aria-label="' + (r.count ? r.avg.toFixed(1) + ' out of 5 Pronto Pups' : 'Not yet rated') + '">' +
+    pupOne(!!r.count) + ' ' + (r.count ? r.avg.toFixed(1) : '—') + '</span>';
 }
 
 function foodCardHtml(f) {
