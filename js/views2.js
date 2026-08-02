@@ -1,64 +1,71 @@
 /* Views: map, feed, notifications, profile, vendor dashboard, admin console */
 /* global S, save, uid, me, getUser, getFood, getVendor, getList, getReview, foodReviews, foodRating, listCountForFood, trendingFoods, notify, myNotifications, logActivity, esc, timeAgo, toast, pushToast, openModal, closeModal, pups, ratingLine, avatarHtml, userName, foodPills, foodCardHtml, updateBell, updateAvatarBtn, readImage, render, resetState, avatarInline */
 
-/* ================= MAP (real fairgrounds grid + street routing) ================= */
+/* ================= MAP (real lat/long projection + street routing) =================
+   Every vendor carries real coordinates from the official database; street lines
+   are derived from those coordinates (CATALOG.geo). The SVG is a straight
+   equirectangular projection of the actual fairgrounds. */
 const mapState = { listId: '', vendorSel: '', amen: { restroom: true, atm: false, firstaid: false } };
 
-/* Street grid mirrors the real MN State Fairgrounds: north–south streets and
-   east–west avenues. Vendor coordinates in data.js sit on these lines. */
-/* Order & building zones follow the fair's own location addresses:
-   Underwood is the central spine (Cooper just east, Cosgrove far east);
-   the livestock/ag row — Coliseum, Cattle Barn, Ag-Hort, Dairy — sits SOUTH
-   near Como Ave; the North End & Midway sit north. */
+const GEO = CATALOG.geo;
+const MAPW = 760, MAPH = 900;          // portrait: the grounds are taller N-S than wide E-W
+const MX = 66, MY = 84;                // margins for parking/labels
+const LATSPAN = GEO.maxLat - GEO.minLat;
+const LONSPAN = GEO.maxLon - GEO.minLon;
+function gx(lon) { return MX + (lon - GEO.minLon) / LONSPAN * (MAPW - 2 * MX); }
+function gy(lat) { return MY + (GEO.maxLat - lat) / LATSPAN * (MAPH - 2 * MY); }
+
 const STREETS = {
-  vert: [
-    { x: 70,  name: 'Snelling Ave' }, { x: 160, name: 'Liggett St' },
-    { x: 250, name: 'Chambers St' },  { x: 335, name: 'Clough St' },
-    { x: 415, name: 'Nelson St' },    { x: 500, name: 'Underwood St' },
-    { x: 600, name: 'Cooper St' },    { x: 700, name: 'Cosgrove St' },
-  ],
-  horiz: [
-    { y: 90,  name: 'Randall Ave' }, { y: 175, name: 'Wright Ave' },
-    { y: 265, name: 'Dan Patch Ave' }, { y: 355, name: 'Carnes Ave' },
-    { y: 450, name: 'Judson Ave' },  { y: 555, name: 'Murphy Ave' },
-  ],
+  vert:  GEO.streets.map(s => ({ x: Math.round(gx(s.lon)), name: s.name })),
+  horiz: GEO.avenues.map(a => ({ y: Math.round(gy(a.lat)), name: a.name })),
 };
 const XS = STREETS.vert.map(s => s.x);
 const YS = STREETS.horiz.map(s => s.y);
-const ENTRANCE = { x: 70, y: 450 };   // Main Gate / transit hub, SW at Snelling
-const MPP = 1.55;                      // meters per pixel (~1 km across)
-const WALK = 74;                       // meters/minute, fair-crowd pace
 
-const BUILDINGS = [
-  { name: 'Grandstand',    x: 85,  y: 182, w: 175, h: 148, fill: '#efeae0', stroke: '#e2ddce' },
-  { name: 'West End',      x: 85,  y: 360, w: 110, h: 82,  fill: '#ece7db', stroke: '#ddd7c6' },
-  { name: 'Food Bldg',     x: 505, y: 272, w: 90,  h: 80,  fill: '#efe9dc', stroke: '#ded6bd' },
-  { name: 'Mighty Midway', x: 250, y: 96,  w: 165, h: 48,  fill: '#ebe6f0', stroke: '#dad3e2' },
-  { name: 'North End',     x: 505, y: 96,  w: 190, h: 48,  fill: '#e6ecf0', stroke: '#d3dde2' },
-  { name: 'Cattle Barn',   x: 240, y: 458, w: 90,  h: 92,  fill: '#eef0e5', stroke: '#dfe1d0' },
-  { name: 'Coliseum',      x: 335, y: 458, w: 78,  h: 92,  fill: '#eef0e5', stroke: '#dfe1d0' },
-  { name: 'Dairy',         x: 418, y: 458, w: 80,  h: 60,  fill: '#eef0e5', stroke: '#dfe1d0' },
-  { name: 'Int’l Bazaar',  x: 600, y: 458, w: 100, h: 92,  fill: '#eef0e5', stroke: '#dfe1d0' },
-  { name: 'Ag-Hort',       x: 600, y: 360, w: 100, h: 88,  fill: '#eef0e5', stroke: '#dfe1d0' },
-];
+const _dp = STREETS.horiz.find(s => /Dan Patch/.test(s.name));
+const ENTRANCE = { x: MX, y: _dp ? _dp.y : Math.round(MAPH / 2) };  // Main Gate: Snelling at Dan Patch
+const MPP = (LATSPAN * 111320) / (MAPH - 2 * MY);                    // meters per pixel from real span
+const WALK = 74;                                                     // meters/minute, fair-crowd pace
 
-/* Irregular fairgrounds outline (angled SW corner, stepped E side) drawn as a
-   polygon, ringed by the real color-coded parking lots for orientation. */
-const GROUNDS = '60,72 756,72 756,250 795,262 795,452 756,464 756,588 300,588 175,614 60,512';
+/* labeled zones (text only — pins carry the detail at this density) */
+function zoneLabels() {
+  const sx = n => { const s = STREETS.vert.find(t => t.name.indexOf(n) === 0); return s ? s.x : null; };
+  const sy = n => { const s = STREETS.horiz.find(t => t.name.indexOf(n) === 0); return s ? s.y : null; };
+  const mid = (a, b) => (a + b) / 2;
+  const out = [];
+  const und = sx('Underwood'), coop = sx('Cooper'), lig = sx('Liggett'), cham = sx('Chambers'), nel = sx('Nelson');
+  const dan = sy('Dan Patch'), car = sy('Carnes'), jud = sy('Judson'), ran = sy('Randall'), wri = sy('Wright'), mur = sy('Murphy');
+  if (und && dan && car) out.push({ x: und + 30, y: mid(dan, car), t: 'Food Building' });
+  if (coop && jud) out.push({ x: coop + 6, y: jud + 34, t: 'Int’l Bazaar' });
+  if (lig && cham && dan && car) out.push({ x: mid(lig, cham) - 30, y: mid(dan, car), t: 'Grandstand' });
+  if (lig && car && jud) out.push({ x: lig - 34, y: mid(car, jud), t: 'West End' });
+  if (cham && ran && wri) out.push({ x: cham - 20, y: mid(ran, wri), t: 'Mighty Midway' });
+  if (und && mur) out.push({ x: und + 20, y: mur - 26, t: 'North End' });
+  if (nel && jud) out.push({ x: nel, y: jud + 40, t: 'Livestock / Coliseum' });
+  return out;
+}
+
+/* grounds outline + surrounding parking, scaled to the projected viewBox */
+const GROUNDS = [
+  [MX - 20, MY - 16], [MAPW - MX + 20, MY - 16], [MAPW - MX + 20, MAPH * 0.42],
+  [MAPW - MX + 44, MAPH * 0.45], [MAPW - MX + 44, MAPH * 0.72], [MAPW - MX + 20, MAPH * 0.75],
+  [MAPW - MX + 20, MAPH - MY + 18], [MAPW * 0.38, MAPH - MY + 18], [MAPW * 0.22, MAPH - MY + 44],
+  [MX - 20, MAPH - MY + 6], [MX - 20, MY - 16],
+].map(p => Math.round(p[0]) + ',' + Math.round(p[1])).join(' ');
 const PARKING = [
-  { name: 'North Purple Lot', x: 120, y: 16,  w: 300, h: 46, fill: '#e8e2f0', tc: '#6a5a8c' },
-  { name: 'North Yellow Lot', x: 430, y: 16,  w: 300, h: 46, fill: '#f2edcd', tc: '#8a7a26' },
-  { name: 'West Blue Lot',    x: 8,   y: 200,  w: 44,  h: 250, fill: '#dfe8f3', tc: '#456a8c', rot: true },
-  { name: 'Transit Hub',      x: 20,  y: 556,  w: 150, h: 100, fill: '#e2ecf2', tc: '#456a8c' },
-  { name: 'Stella-Como Lot',  x: 150, y: 606,  w: 160, h: 54, fill: '#e9e6de', tc: '#79736a' },
-  { name: 'South Red Lot',    x: 320, y: 606,  w: 300, h: 54, fill: '#f3dede', tc: '#8c3838' },
-  { name: 'East Lots',        x: 802, y: 210,  w: 34,  h: 250, fill: '#e7e6de', tc: '#69675c', rot: true },
+  { name: 'North Purple Lot', x: MX, y: 10, w: (MAPW - 2 * MX) / 2 - 10, h: 42, fill: '#e8e2f0', tc: '#6a5a8c' },
+  { name: 'North Yellow Lot', x: MAPW / 2 + 10, y: 10, w: (MAPW - 2 * MX) / 2 - 10, h: 42, fill: '#f2edcd', tc: '#8a7a26' },
+  { name: 'West Blue Lot', x: 6, y: MAPH * 0.22, w: 36, h: MAPH * 0.3, fill: '#dfe8f3', tc: '#456a8c', rot: true },
+  { name: 'Transit Hub', x: 6, y: MAPH * 0.62, w: 36, h: MAPH * 0.2, fill: '#e2ecf2', tc: '#456a8c', rot: true },
+  { name: 'South Red Lot', x: MAPW * 0.4, y: MAPH - 48, w: MAPW * 0.45, h: 40, fill: '#f3dede', tc: '#8c3838' },
+  { name: 'Stella-Como Lot', x: MX, y: MAPH - 48, w: MAPW * 0.26, h: 40, fill: '#e9e6de', tc: '#79736a' },
+  { name: 'East Lots', x: MAPW - 40, y: MAPH * 0.22, w: 34, h: MAPH * 0.3, fill: '#e7e6de', tc: '#69675c', rot: true },
 ];
 const BOUNDS = [
-  { name: 'LARPENTEUR AVE',   x: 428, y: 10,  a: 'middle' },
-  { name: 'COMO AVE',         x: 428, y: 692, a: 'middle' },
-  { name: 'SNELLING AVE',     x: 9,   y: 150, rot: true },
-  { name: 'COMMONWEALTH AVE', x: 833, y: 150, rot: true },
+  { name: 'LARPENTEUR AVE', x: MAPW / 2, y: 8, a: 'middle' },
+  { name: 'COMO AVE', x: MAPW / 2, y: MAPH - 2, a: 'middle' },
+  { name: 'SNELLING AVE', x: 12, y: MAPH * 0.12, rot: true },
+  { name: 'COMMONWEALTH AVE', x: MAPW - 8, y: MAPH * 0.12, rot: true },
 ];
 
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
@@ -108,6 +115,12 @@ function shortest(aId, bId) {
   return { dist: D[bId], path: path };
 }
 
+/* vendor -> projected pixel point (null when the vendor has no coordinates) */
+function vpt(v) {
+  if (!v || v.lat == null || v.lon == null) return null;
+  return { x: gx(v.lon), y: gy(v.lat) };
+}
+
 /* ---- route optimization: nearest-neighbour ordering over street distances ---- */
 function routeFor(listId) {
   const l = getList(listId);
@@ -115,7 +128,11 @@ function routeFor(listId) {
   const stops = [], seen = {};
   l.foodIds.forEach(fid => {
     const f = getFood(fid);
-    if (f && !seen[f.vendorId]) { seen[f.vendorId] = true; stops.push(getVendor(f.vendorId)); }
+    if (f && !seen[f.vendorId]) {
+      seen[f.vendorId] = true;
+      const v = getVendor(f.vendorId);
+      if (v && vpt(v)) stops.push(v);
+    }
   });
   if (!stops.length) return null;
   const g = graph();
@@ -125,22 +142,25 @@ function routeFor(listId) {
   while (left.length) {
     let bi = 0, bd = Infinity, bpath = null;
     for (let i = 0; i < left.length; i++) {
-      const r = shortest(curNode, snap(left[i]));
+      const r = shortest(curNode, snap(vpt(left[i])));
       if (r.dist < bd) { bd = r.dist; bi = i; bpath = r.path; }
     }
     const v = left.splice(bi, 1)[0];
-    const vNode = snap(v);
+    const p = vpt(v);
+    const vNode = snap(p);
     const pts = bpath.map(nid => [g.nodes[nid].x, g.nodes[nid].y]);
-    legs.push([[curPt.x, curPt.y]].concat(pts).concat([[v.x, v.y]]));
-    meters += (bd + dist(g.nodes[vNode], v)) * MPP;
+    legs.push([[curPt.x, curPt.y]].concat(pts).concat([[p.x, p.y]]));
+    meters += (bd + dist(g.nodes[vNode], p)) * MPP;
     order.push(v);
-    curNode = vNode; curPt = v;
+    curNode = vNode; curPt = p;
   }
   return { order: order, legs: legs, meters: meters };
 }
 function walkMinFromGate(v) {
-  const r = shortest(snap(ENTRANCE), snap(v));
-  return Math.max(1, Math.round((r.dist + dist(graph().nodes[snap(v)], v)) * MPP / WALK));
+  const p = vpt(v);
+  if (!p) return null;
+  const r = shortest(snap(ENTRANCE), snap(p));
+  return Math.max(1, Math.round((r.dist + dist(graph().nodes[snap(p)], p)) * MPP / WALK));
 }
 
 function p_boundLabel(b) {
@@ -160,9 +180,9 @@ function viewMap(el, params) {
   const routeIds = order.map(v => v.id);
   const walkMin = route ? Math.max(1, Math.round(route.meters / WALK)) : 0;
 
-  let svg = '<svg class="map-svg" viewBox="0 0 840 700" role="img" aria-label="Minnesota State Fairgrounds map: the irregular grounds outline with internal streets, buildings, and surrounding parking lots (North Purple, North Yellow, West Blue, South Red, Stella-Como) for orientation.">' +
+  let svg = '<svg class="map-svg" viewBox="0 0 ' + MAPW + ' ' + MAPH + '" role="img" aria-label="Minnesota State Fairgrounds map projected from real vendor coordinates, with streets, zones, and surrounding parking lots for orientation.">' +
     '<defs><clipPath id="groundsClip"><polygon points="' + GROUNDS + '"/></clipPath></defs>' +
-    '<rect width="840" height="700" fill="#e8e6df"/>';
+    '<rect width="' + MAPW + '" height="' + MAPH + '" fill="#e8e6df"/>';
 
   // parking lots + boundary avenues (drawn outside the grounds, for reference)
   PARKING.forEach(p => {
@@ -179,23 +199,25 @@ function viewMap(el, params) {
   // grounds outline (irregular shape)
   svg += '<polygon points="' + GROUNDS + '" fill="#f8f9f5" stroke="#d8d8ce" stroke-width="1.5"/>';
 
-  // buildings (drawn under the streets)
-  BUILDINGS.forEach(b => {
-    svg += '<rect x="' + b.x + '" y="' + b.y + '" width="' + b.w + '" height="' + b.h + '" rx="6" fill="' + b.fill + '" stroke="' + b.stroke + '"/>' +
-      '<text x="' + (b.x + b.w / 2) + '" y="' + (b.y + b.h / 2 + 4) + '" text-anchor="middle" font-size="10.5" fill="#847e70">' + b.name + '</text>';
-  });
-
   // street grid + names (clipped to the grounds outline)
   svg += '<g clip-path="url(#groundsClip)">';
   STREETS.horiz.forEach(s => {
-    svg += '<line x1="60" y1="' + s.y + '" x2="756" y2="' + s.y + '" stroke="#fff" stroke-width="12"/>';
+    svg += '<line x1="' + (MX - 20) + '" y1="' + s.y + '" x2="' + (MAPW - MX + 44) + '" y2="' + s.y + '" stroke="#fff" stroke-width="11"/>';
   });
   STREETS.vert.forEach(s => {
-    svg += '<line x1="' + s.x + '" y1="72" x2="' + s.x + '" y2="588" stroke="#fff" stroke-width="11"/>';
+    svg += '<line x1="' + s.x + '" y1="' + (MY - 16) + '" x2="' + s.x + '" y2="' + (MAPH - MY + 18) + '" stroke="#fff" stroke-width="10"/>';
   });
   svg += '</g>';
   STREETS.horiz.forEach(s => {
-    svg += '<text x="66" y="' + (s.y - 8) + '" font-size="10" fill="#aca699">' + s.name + '</text>';
+    svg += '<text x="' + (MX - 14) + '" y="' + (s.y - 7) + '" font-size="10" fill="#aca699">' + s.name + '</text>';
+  });
+  STREETS.vert.forEach(s => {
+    svg += '<text x="' + (s.x + 3) + '" y="' + (MY + 2) + '" font-size="8.5" fill="#b6b0a4" transform="rotate(-90 ' + (s.x + 3) + ' ' + (MY + 2) + ')" text-anchor="end">' + s.name + '</text>';
+  });
+
+  // labeled zones
+  zoneLabels().forEach(z => {
+    svg += '<text x="' + Math.round(z.x) + '" y="' + Math.round(z.y) + '" text-anchor="middle" font-size="10" font-style="italic" fill="#a09a8c">' + z.t + '</text>';
   });
 
   // Main Gate
@@ -210,24 +232,27 @@ function viewMap(el, params) {
     });
   }
 
-  // amenities
+  // amenities (stored as lat/long, projected here)
   S.amenities.forEach(a => {
     if (!mapState.amen[a.type]) return;
     a.spots.forEach(s => {
-      svg += '<text x="' + s.x + '" y="' + (s.y + 6) + '" text-anchor="middle" font-size="17" aria-label="' + a.label + '">' + a.icon + '</text>';
+      const ax = s.lon != null ? gx(s.lon) : s.x, ay = s.lat != null ? gy(s.lat) : s.y;
+      svg += '<text x="' + Math.round(ax) + '" y="' + Math.round(ay + 6) + '" text-anchor="middle" font-size="16" aria-label="' + a.label + '">' + a.icon + '</text>';
     });
   });
 
-  // vendor pins
+  // vendor pins at real coordinates (small at this density; route stops enlarge)
   S.vendors.forEach(v => {
+    const p = vpt(v);
+    if (!p) return;
     const onRoute = routeIds.indexOf(v.id);
     const sel = mapState.vendorSel === v.id;
-    const color = sel ? '#222222' : (onRoute >= 0 ? '#c8102e' : '#b0aaa0');
-    const r = sel || onRoute >= 0 ? 13 : 8;
+    const color = sel ? '#222222' : (onRoute >= 0 ? '#c8102e' : '#b7b1a6');
+    const r = sel || onRoute >= 0 ? 12 : 5;
     svg += '<g class="map-pin" role="button" tabindex="0" aria-label="' + esc(v.name) + '" onclick="mapPick(\'' + v.id + '\')" onkeydown="if(event.key===\'Enter\')mapPick(\'' + v.id + '\')">' +
-      '<circle cx="' + v.x + '" cy="' + v.y + '" r="' + r + '" fill="' + color + '" stroke="#fff" stroke-width="2.5"/>' +
+      '<circle cx="' + Math.round(p.x) + '" cy="' + Math.round(p.y) + '" r="' + r + '" fill="' + color + '" stroke="#fff" stroke-width="' + (r > 6 ? 2.5 : 1.4) + '"/>' +
       (onRoute >= 0
-        ? '<text x="' + v.x + '" y="' + (v.y + 4) + '" text-anchor="middle" font-size="12" fill="#fff" font-weight="bold">' + (onRoute + 1) + '</text>'
+        ? '<text x="' + Math.round(p.x) + '" y="' + Math.round(p.y + 4) + '" text-anchor="middle" font-size="11" fill="#fff" font-weight="bold">' + (onRoute + 1) + '</text>'
         : '') +
       '</g>';
   });
@@ -258,15 +283,20 @@ function mapPick(vid) {
 }
 function vendorCardHtml(v, routeIdx) {
   const menu = S.foods.filter(f => f.vendorId === v.id);
+  const shown = menu.slice(0, 10);
+  const walk = walkMinFromGate(v);
   return '<div class="card">' +
+    (v.photo ? '<div class="photo" style="background-image:url(' + v.photo + ');margin-bottom:12px"></div>' : '') +
     '<div class="row between"><h2 style="font-size:16px;margin:0;font-weight:600">' + esc(v.name) + (v.verified ? ' <span class="vbadge">✔</span>' : '') + '</h2>' +
     (routeIdx >= 0 ? '<span class="pill new">Stop ' + (routeIdx + 1) + '</span>' : '') + '</div>' +
-    '<div class="muted" style="margin:4px 0">' + esc(v.desc) + ' · Open ' + esc(v.hours) + '</div>' +
+    '<div class="muted" style="margin:4px 0">' + esc(v.loc || '') + (v.hours ? ' · ' + esc(v.hours) : '') + '</div>' +
     (v.specials ? '<div class="vendor-reply">Today: ' + esc(v.specials) + '</div>' : '') +
-    '<div class="muted" style="margin:8px 0 4px">Est. wait <b>' + waitEstimate(v) + ' min</b> · <b>' + walkMinFromGate(v) + ' min</b> walk from Main Gate</div>' +
-    menu.map(f => '<a class="row between" style="padding:7px 0;border-top:1px solid var(--line);color:inherit" href="#/food/' + f.id + '">' +
-      '<span>' + f.emoji + ' ' + esc(f.name) + (f.soldOut ? ' <span class="pill soldout">SOLD OUT</span>' : '') + '</span>' +
-      '<span class="muted">$' + f.price.toFixed(2).replace(/\.00$/, '') + '</span></a>').join('') +
+    (v.offers ? '<div class="vendor-reply">Deals: ' + esc(v.offers.length > 140 ? v.offers.slice(0, 137) + '…' : v.offers) + '</div>' : '') +
+    '<div class="muted" style="margin:8px 0 4px">Est. wait <b>' + waitEstimate(v) + ' min</b>' + (walk ? ' · <b>' + walk + ' min</b> walk from Main Gate' : '') + '</div>' +
+    shown.map(f => '<a class="row between" style="padding:7px 0;border-top:1px solid var(--line);color:inherit" href="#/food/' + f.id + '">' +
+      '<span>' + f.emoji + ' ' + esc(f.name) + (f.isNew ? ' <span class="pill new">New</span>' : '') + (f.soldOut ? ' <span class="pill soldout">SOLD OUT</span>' : '') + '</span>' +
+      (f.price ? '<span class="muted">$' + f.price.toFixed(2).replace(/\.00$/, '') + '</span>' : '') + '</a>').join('') +
+    (menu.length > shown.length ? '<div class="muted" style="padding:8px 0 0;border-top:1px solid var(--line)">+ ' + (menu.length - shown.length) + ' more items — search "' + esc(v.name) + '" to see all</div>' : '') +
     '</div>';
 }
 function waitEstimate(v) {
@@ -506,7 +536,7 @@ function viewVendorDash(el) {
     menu.map(f => {
       const r = foodRating(f.id);
       return '<div class="card">' +
-        '<div class="row between"><b>' + f.emoji + ' ' + esc(f.name) + '</b><span class="muted">$' + f.price.toFixed(2) + '</span></div>' +
+        '<div class="row between"><b>' + f.emoji + ' ' + esc(f.name) + '</b>' + (f.price ? '<span class="muted">$' + f.price.toFixed(2) + '</span>' : '') + '</div>' +
         '<div class="muted" style="margin:4px 0">' + (r.count ? r.avg.toFixed(1) + ' Pup avg · ' + r.count + ' reviews' : 'No reviews yet') + ' · on ' + listCountForFood(f.id) + ' lists</div>' +
         '<div class="row" style="flex-wrap:wrap">' +
         '<button class="btn small ' + (f.soldOut ? 'secondary' : 'ghost') + '" aria-pressed="' + f.soldOut + '" onclick="toggleSoldOut(\'' + f.id + '\')">' + (f.soldOut ? 'Sold out — tap to restock' : 'Mark sold out') + '</button>' +
@@ -538,14 +568,16 @@ function submitClaim() {
 }
 function saveVendorInfo(vid) {
   const v = getVendor(vid);
-  v.hours = document.getElementById('vdHours').value.trim() || v.hours;
-  v.specials = document.getElementById('vdSpecial').value.trim();
-  save(); toast('Booth info updated');
+  overrideVendor(vid, {
+    hours: document.getElementById('vdHours').value.trim() || v.hours,
+    specials: document.getElementById('vdSpecial').value.trim(),
+  });
+  toast('Booth info updated');
 }
 function toggleSoldOut(fid) {
   const f = getFood(fid);
-  f.soldOut = !f.soldOut;
-  save(); render();
+  overrideFood(fid, { soldOut: !f.soldOut });
+  render();
   toast(f.soldOut ? f.name + ' marked sold out for today' : f.name + ' is back!');
 }
 /* ---- official (hero) photo: set by owning vendor or admin ---- */
@@ -574,21 +606,21 @@ function heroUpload(input) {
 }
 function saveHero(fid) {
   if (!heroTemp) { toast('Choose a photo first'); return; }
-  getFood(fid).heroImg = heroTemp;
-  save(); closeModal(); render();
+  overrideFood(fid, { heroImg: heroTemp });
+  closeModal(); render();
   toast('Official photo updated');
 }
 function removeHero(fid) {
-  getFood(fid).heroImg = null;
-  save(); closeModal(); render();
-  toast('Official photo removed — guest photos will show instead');
+  overrideFood(fid, { heroImg: null });
+  closeModal(); render();
+  toast('Official photo removed');
 }
 
 function openEditFood(fid) {
   const f = getFood(fid);
   openModal('<h2>✏️ Edit menu item</h2>' +
     '<label class="field">Name<input type="text" id="efName" value="' + esc(f.name) + '"></label>' +
-    '<label class="field">Price ($)<input type="number" id="efPrice" step="0.5" min="0" value="' + f.price + '"></label>' +
+    '<label class="field">Price ($)<input type="number" id="efPrice" step="0.5" min="0" value="' + (f.price != null ? f.price : '') + '"></label>' +
     '<label class="field">Description<textarea id="efDesc">' + esc(f.desc) + '</textarea></label>' +
     '<label class="field">Dietary info <span class="muted">(comma separated: vegetarian, vegan, gluten-free, dairy-free)</span>' +
     '<input type="text" id="efDiet" value="' + f.dietary.join(', ') + '"></label>' +
@@ -596,11 +628,14 @@ function openEditFood(fid) {
 }
 function saveFood(fid) {
   const f = getFood(fid);
-  f.name = document.getElementById('efName').value.trim() || f.name;
-  f.price = parseFloat(document.getElementById('efPrice').value) || f.price;
-  f.desc = document.getElementById('efDesc').value.trim();
-  f.dietary = document.getElementById('efDiet').value.split(',').map(s => s.trim()).filter(Boolean);
-  save(); closeModal(); render();
+  const priceRaw = parseFloat(document.getElementById('efPrice').value);
+  overrideFood(fid, {
+    name: document.getElementById('efName').value.trim() || f.name,
+    price: isNaN(priceRaw) ? f.price : priceRaw,
+    desc: document.getElementById('efDesc').value.trim(),
+    dietary: document.getElementById('efDiet').value.split(',').map(s => s.trim()).filter(Boolean),
+  });
+  closeModal(); render();
   toast('Menu item updated');
 }
 
@@ -727,8 +762,9 @@ function adminApprove(reqId) {
     if (l) { l.featured = true; notify(l.ownerId, '⭐ Your list "' + l.name + '" is now Featured!', '#/list/' + l.id); }
   } else {
     const v = getVendor(r.vendorId);
-    v.verified = true;
-    if (r.requesterUserId) { v.ownerUserId = r.requesterUserId; notify(r.requesterUserId, '✅ Your claim for ' + v.name + ' was approved!', '#/vendor'); }
+    const patch = { verified: true };
+    if (r.requesterUserId) { patch.ownerUserId = r.requesterUserId; notify(r.requesterUserId, '✅ Your claim for ' + v.name + ' was approved!', '#/vendor'); }
+    overrideVendor(r.vendorId, patch);
   }
   save(); render();
   toast('Approved ✅');

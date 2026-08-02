@@ -108,9 +108,11 @@ const CAT_GRADS = {
   'Drinks':     ['#e0e6e7', '#bfccce'],
   'Dairy':      ['#eae6dc', '#cfc8b5'],
 };
-/* image precedence: official (vendor/admin) hero -> latest guest photo -> placeholder */
+/* image precedence: uploaded hero -> official new-food photo -> latest guest
+   photo -> vendor's official photo -> category placeholder */
 function photoHtml(f, cls) {
-  const img = f.heroImg || foodPhoto(f);
+  const v = getVendor(f.vendorId);
+  const img = f.heroImg || f.photo || foodPhoto(f) || (v && v.photo) || null;
   const g = CAT_GRADS[f.cats[0]] || CAT_GRADS.Savory;
   let badges = '';
   if (f.isNew) badges += '<span class="pbadge">New 2026</span>';
@@ -136,7 +138,7 @@ function foodCardHtml(f) {
     '<div class="pcard-body">' +
     '<div class="pcard-top"><span class="pcard-title">' + esc(f.name) + '</span>' + ratingCompact(f.id) + '</div>' +
     '<div class="sub">' + esc(v ? v.name : '') + '</div>' +
-    '<div class="sub">$' + f.price.toFixed(2).replace(/\.00$/, '') + ' · ' + esc(f.cats[0]) + '</div>' +
+    '<div class="sub">' + (f.price ? '$' + f.price.toFixed(2).replace(/\.00$/, '') + ' · ' : '') + esc(f.cats[0]) + (f.isNew && !f.official ? ' · New' : '') + '</div>' +
     '</div></a>';
 }
 

@@ -91,7 +91,8 @@ function obDemo(userId) {
 function viewHome(el) {
   const u = me();
   const featured = sponsoredLists();
-  const fresh = S.foods.filter(f => f.isNew);
+  // official new foods lead the carousel; cap it — the full set lives in search
+  const fresh = S.foods.filter(f => f.official).concat(S.foods.filter(f => f.isNew && !f.official)).slice(0, 14);
   const trend = trendingFoods(6);
   const ch = S.challenges[0];
 
@@ -134,8 +135,8 @@ function viewHome(el) {
 }
 
 /* ================= SEARCH ================= */
-const searchState = { q: '', onlyNew: false, cat: '', diets: [], price: '', minRating: 0, page: 1, _sig: '' };
-const SEARCH_PAGE = 24; // render results a page at a time — the catalog is ~1,600 foods
+const searchState = { q: '', onlyNew: false, cat: '', diets: [], value5: false, sips: false, minRating: 0, page: 1, _sig: '' };
+const SEARCH_PAGE = 24; // render results a page at a time — the catalog is ~3,800 foods
 
 function viewSearch(el, params) {
   if (params.get('new') === '1') { searchState.onlyNew = true; }
@@ -151,15 +152,11 @@ function viewSearch(el, params) {
     ['Deep Fried', 'On a Stick', 'Sweet', 'Savory', 'Drinks', 'Dairy'].map(c =>
       '<button class="chip ' + (searchState.cat === c ? 'on' : '') + '" aria-pressed="' + (searchState.cat === c) + '" onclick="searchState.cat=searchState.cat===\'' + c + '\'?\'\':\'' + c + '\';render()">' + c + '</button>').join('') +
     '</div>' +
-    '<div class="chip-row scroll" role="group" aria-label="Dietary and price filters">' +
-    ['vegetarian', 'vegan', 'gluten-free', 'dairy-free'].map(d =>
+    '<div class="chip-row scroll" role="group" aria-label="Dietary and value filters">' +
+    ['vegetarian', 'vegan', 'gluten-free'].map(d =>
       '<button class="chip ' + (searchState.diets.includes(d) ? 'on' : '') + '" aria-pressed="' + searchState.diets.includes(d) + '" onclick="toggleDiet(\'' + d + '\')">' + d + '</button>').join('') +
-    '<select aria-label="Price range" style="width:auto;padding:6px 10px;border-radius:999px;font-size:12.5px" onchange="searchState.price=this.value;render()">' +
-    '<option value="" ' + (searchState.price === '' ? 'selected' : '') + '>Any price</option>' +
-    '<option value="low" ' + (searchState.price === 'low' ? 'selected' : '') + '>Under $6</option>' +
-    '<option value="mid" ' + (searchState.price === 'mid' ? 'selected' : '') + '>$6–$10</option>' +
-    '<option value="high" ' + (searchState.price === 'high' ? 'selected' : '') + '>Over $10</option>' +
-    '</select>' +
+    '<button class="chip ' + (searchState.value5 ? 'on' : '') + '" aria-pressed="' + searchState.value5 + '" onclick="searchState.value5=!searchState.value5;render()">Value $5 &amp; under</button>' +
+    '<button class="chip ' + (searchState.sips ? 'on' : '') + '" aria-pressed="' + searchState.sips + '" onclick="searchState.sips=!searchState.sips;render()">Specialty Sips</button>' +
     '<select aria-label="Minimum rating" style="width:auto;padding:6px 10px;border-radius:999px;font-size:12.5px" onchange="searchState.minRating=+this.value;render()">' +
     [0, 3, 4, 4.5].map(r => '<option value="' + r + '" ' + (searchState.minRating === r ? 'selected' : '') + '>' + (r ? r + '+ Pups' : 'Any rating') + '</option>').join('') +
     '</select>' +
@@ -188,19 +185,27 @@ function searchTyped(v) {
   } else box.innerHTML = '';
   document.getElementById('searchResults').innerHTML = searchResultsHtml();
 }
+/* dietary matches the food's own tags OR the vendor's published options */
+function dietMatch(f, v, d) {
+  if (f.dietary && f.dietary.includes(d)) return true;
+  if (!v) return false;
+  if (d === 'vegetarian') return v.veg;
+  if (d === 'vegan') return v.vegan;
+  if (d === 'gluten-free') return v.gf;
+  return false;
+}
 function matchFilters(f) {
+  const v = getVendor(f.vendorId);
   const q = searchState.q.trim().toLowerCase();
   if (q) {
-    const v = getVendor(f.vendorId);
     const hit = f.name.toLowerCase().includes(q) || (v && v.name.toLowerCase().includes(q)) || f.cats.some(c => c.toLowerCase().includes(q));
     if (!hit) return false;
   }
   if (searchState.onlyNew && !f.isNew) return false;
   if (searchState.cat && !f.cats.includes(searchState.cat)) return false;
-  if (searchState.diets.length && !searchState.diets.every(d => f.dietary.includes(d))) return false;
-  if (searchState.price === 'low' && f.price >= 6) return false;
-  if (searchState.price === 'mid' && (f.price < 6 || f.price > 10)) return false;
-  if (searchState.price === 'high' && f.price <= 10) return false;
+  if (searchState.diets.length && !searchState.diets.every(d => dietMatch(f, v, d))) return false;
+  if (searchState.value5 && !(v && v.value5)) return false;
+  if (searchState.sips && !f.sip) return false;
   if (searchState.minRating) {
     const r = foodRating(f.id);
     if (!r.count || r.avg < searchState.minRating) return false;
@@ -211,14 +216,14 @@ const BROWSE_CATS = ['Deep Fried', 'On a Stick', 'Sweet', 'Savory', 'Drinks', 'D
 const CAT_ICON = { 'Deep Fried': '🍤', 'On a Stick': '🍢', 'Sweet': '🍰', 'Savory': '🧀', 'Drinks': '🥤', 'Dairy': '🥛' };
 
 function searchSig() {
-  return [searchState.q.trim(), searchState.onlyNew, searchState.cat, searchState.diets.join(','), searchState.price, searchState.minRating].join('|');
+  return [searchState.q.trim(), searchState.onlyNew, searchState.cat, searchState.diets.join(','), searchState.value5, searchState.sips, searchState.minRating].join('|');
 }
 function loadMoreSearch() {
   searchState.page++;
   document.getElementById('searchResults').innerHTML = searchResultsHtml();
 }
 function searchResultsHtml() {
-  const anyFilter = searchState.q.trim() || searchState.onlyNew || searchState.cat || searchState.diets.length || searchState.price || searchState.minRating;
+  const anyFilter = searchState.q.trim() || searchState.onlyNew || searchState.cat || searchState.diets.length || searchState.value5 || searchState.sips || searchState.minRating;
   /* reset paging whenever the query/filters change */
   const sig = searchSig();
   if (sig !== searchState._sig) { searchState._sig = sig; searchState.page = 1; }
@@ -272,7 +277,8 @@ function viewFood(el, id) {
     '<div class="detail-head">' +
     '<h1>' + esc(f.name) + '</h1>' +
     '<div class="detail-meta">' + ratingLine(f.id) + ' · On ' + listCountForFood(f.id) + ' lists</div>' +
-    '<div class="detail-meta"><b>' + esc(v.name) + '</b> · $' + f.price.toFixed(2).replace(/\.00$/, '') + ' · Open ' + esc(v.hours) + '</div>' +
+    '<div class="detail-meta"><b>' + esc(v.name) + '</b>' + (f.price ? ' · $' + f.price.toFixed(2).replace(/\.00$/, '') : '') + (v.hours ? ' · ' + esc(v.hours) : '') + '</div>' +
+    (v.loc ? '<div class="detail-meta">' + esc(v.loc) + '</div>' : '') +
     '</div>' +
     '<div class="action-row">' +
     '<button class="btn" onclick="openRateModal(\'' + f.id + '\')">Rate & review</button>' +
@@ -281,8 +287,9 @@ function viewFood(el, id) {
     (myVendor || u.role === 'admin' ? '<button class="btn ghost" onclick="openHeroModal(\'' + f.id + '\')">Official photo</button>' : '') +
     '</div>' +
     (v.specials ? '<div class="notice"><span aria-hidden="true">🎉</span><span><b>Today:</b> ' + esc(v.specials) + '</span></div>' : '') +
+    (v.offers ? '<div class="notice"><span aria-hidden="true">🎟️</span><span><b>Deals:</b> ' + esc(v.offers.length > 160 ? v.offers.slice(0, 157) + '…' : v.offers) + '</span></div>' : '') +
     '<hr class="divider">' +
-    '<p style="font-size:14.5px;line-height:1.6;margin:0">' + esc(f.desc) + '</p>' +
+    '<p style="font-size:14.5px;line-height:1.6;margin:0">' + esc(f.desc || ('On the menu at ' + v.name + '. Ask at the booth for details — then come back and rate it.')) + '</p>' +
     '<div class="chip-row" style="margin-top:12px">' + foodPills(f) + '</div>' +
     (allPhotos.length ? '<hr class="divider"><div class="section-title" style="margin-top:0"><span>Photos from foodies</span></div>' +
       '<div class="gallery">' + allPhotos.map(p => '<img src="' + p + '" alt="Guest photo of ' + esc(f.name) + '">').join('') + '</div>' : '') +
@@ -516,7 +523,7 @@ function viewListDetail(el, id) {
   if (!isOwner) { l.views++; save(); }
   const liked = l.likes.includes(u.id);
   const foods = l.foodIds.map(getFood).filter(Boolean);
-  const total = foods.reduce((a, f) => a + f.price, 0);
+  const total = foods.reduce((a, f) => a + (f.price || 0), 0);
 
   el.innerHTML =
     '<div style="margin:4px 0 16px">' +
@@ -524,7 +531,7 @@ function viewListDetail(el, id) {
     '<span class="pill privacy">' + l.privacy + '</span></div>' +
     '<div class="muted" style="margin:6px 0 12px">' +
     (listRating(l).count ? pupOne(true) + ' <b style="color:var(--ink)">' + listRating(l).avg.toFixed(1) + '</b> (' + listRating(l).count + ') · ' : '') +
-    userName(owner) + ' · ' + foods.length + ' foods · est. $' + total.toFixed(2) + ' · ' + l.views.toLocaleString() + ' views</div>' +
+    userName(owner) + ' · ' + foods.length + ' foods' + (total ? ' · est. $' + total.toFixed(2) : '') + ' · ' + l.views.toLocaleString() + ' views</div>' +
     '<div class="row" style="flex-wrap:wrap">' +
     '<button class="btn small" onclick="location.hash=\'#/map?list=' + l.id + '\'">Map route</button>' +
     '<button class="btn small ghost ' + (liked ? 'on' : '') + '" aria-pressed="' + liked + '" onclick="likeList(\'' + l.id + '\')" style="' + (liked ? 'color:var(--accent);border-color:var(--accent)' : '') + '">♥ ' + l.likes.length + '</button>' +
@@ -549,7 +556,7 @@ function viewListDetail(el, id) {
       '<div class="card food-card">' +
       '<a href="#/food/' + f.id + '" aria-hidden="true" tabindex="-1">' + photoHtml(f, 'thumb') + '</a>' +
       '<span class="grow"><h3><a href="#/food/' + f.id + '">' + esc(f.name) + '</a></h3>' +
-      '<div class="muted">' + esc(getVendor(f.vendorId).name) + ' · $' + f.price.toFixed(2).replace(/\.00$/, '') + '</div>' +
+      '<div class="muted">' + esc((getVendor(f.vendorId) || {}).name || '') + (f.price ? ' · $' + f.price.toFixed(2).replace(/\.00$/, '') : '') + '</div>' +
       ratingLine(f.id) + '</span>' +
       (canEdit ? '<button class="btn small ghost" aria-label="Remove ' + esc(f.name) + '" onclick="removeFromList(\'' + l.id + '\',\'' + f.id + '\')">✕</button>' : '') +
       '</div>').join('') :
