@@ -171,8 +171,13 @@ function p_boundLabel(b) {
 }
 
 function viewMap(el, params) {
+  // Apply deep-link params ONCE, then strip them — otherwise Clear/deselect
+  // gets overridden by the URL on the next render.
   if (params.get('vendor')) { mapState.vendorSel = params.get('vendor'); }
   if (params.get('list')) { mapState.listId = params.get('list'); }
+  if (params.get('vendor') || params.get('list')) {
+    history.replaceState(null, '', location.href.split('#')[0] + '#/map');
+  }
   const u = me();
   const myLists = S.lists.filter(l => l.ownerId === u.id || l.collaborators.includes(u.id) || (l.privacy === 'public' && l.featured));
   const route = mapState.listId ? routeFor(mapState.listId) : null;

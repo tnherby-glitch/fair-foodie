@@ -134,8 +134,13 @@ const searchState = { q: '', onlyNew: false, cat: '', diets: [], value5: false, 
 const SEARCH_PAGE = 24; // render results a page at a time — the catalog is ~3,800 foods
 
 function viewSearch(el, params) {
+  // Apply deep-link params ONCE, then strip them from the hash — otherwise every
+  // re-render re-applies them and filter chips can never be unselected.
   if (params.get('new') === '1') { searchState.onlyNew = true; }
   if (params.get('cat')) { searchState.cat = params.get('cat'); }
+  if (params.get('new') || params.get('cat')) {
+    history.replaceState(null, '', location.href.split('#')[0] + '#/search');
+  }
   el.innerHTML =
     '<div class="searchbox">' +
     '<input type="search" id="searchInput" placeholder="Search foods or vendors" value="' + esc(searchState.q) + '" ' +
