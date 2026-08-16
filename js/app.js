@@ -66,7 +66,7 @@ function render() {
 }
 
 window.addEventListener('hashchange', render);
-function bootApp() {
+async function bootApp() {
   loadState();
   /* capture share attribution (?ref=&ch=) for the deferred-deep-link moment */
   try {
@@ -75,6 +75,10 @@ function bootApp() {
   } catch (e) {}
   if (!location.hash) location.hash = '#/home';
   render();
+  /* restore a real Supabase session if present (async); re-renders when ready */
+  if (typeof authInit === 'function') {
+    try { await authInit(); render(); } catch (e) { console.warn('auth init', e); }
+  }
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootApp);
 else bootApp();

@@ -461,10 +461,12 @@ function switchPersona() {
   toast('Now browsing as ' + me().name);
 }
 function signOut() {
-  S.currentUserId = null;
-  save();
-  location.hash = '#/home';
-  render();
+  const done = () => { location.hash = '#/home'; render(); };
+  if (typeof authIsReal === 'function' && authIsReal()) {
+    authSignOut().then(done);
+  } else {
+    S.currentUserId = null; save(); done();
+  }
 }
 function openEditProfile() {
   const u = me();
@@ -476,13 +478,15 @@ function openEditProfile() {
     '<button class="btn block" onclick="saveProfile()">Save</button>');
 }
 function epPhoto(input) {
-  readImage(input.files[0], 5, data => { me().avatar = data; save(); toast('Photo updated'); updateAvatarBtn(); });
+  readImage(input.files[0], 5, data => { me().avatar = data; save(); if (typeof syncProfile === 'function') syncProfile(); toast('Photo updated'); updateAvatarBtn(); });
 }
 function saveProfile() {
   const u = me();
   u.name = document.getElementById('epName').value.trim() || u.name;
   u.bio = document.getElementById('epBio').value.trim();
-  save(); closeModal(); render();
+  save();
+  if (typeof syncProfile === 'function') syncProfile();
+  closeModal(); render();
   toast('Profile saved');
 }
 function openInfluencerStats() {

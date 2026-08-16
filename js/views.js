@@ -13,54 +13,80 @@ function obStash() {
   if (e) obEmailVal = e.value;
 }
 
+let obSent = false; // "check your email" state after a magic link is sent
+
 function viewOnboarding(el) {
   const emojis = ['😀', '🤠', '🧑‍🌾', '🦆', '🐄', '🌽', '🧀', '🎡', '🎪', '🦄'];
+  const realAuth = typeof authConfigured === 'function' && authConfigured();
+  const mark = '<div class="onboard-mark" aria-hidden="true"><svg viewBox="0 0 240 320" width="72" height="96"><path d="M108 200 L118 294 Q120 303 122 294 L132 200 Z" fill="#8C5A2B"/><rect x="72" y="26" width="96" height="184" rx="48" fill="#E89C31"/><rect x="86" y="46" width="15" height="42" rx="7.5" fill="#F6C778"/><path d="M87 138 L105 98 L120 142 L135 98 L153 138" fill="none" stroke="#D64533" stroke-width="14.5" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-4 120 120)"/></svg></div>';
+
+  if (realAuth && obSent) {
+    el.innerHTML = '<div class="onboard">' + mark +
+      '<h1>Check your email</h1>' +
+      '<p class="muted">We sent a sign-in link to <b>' + esc(obEmailVal) + '</b>. Tap it on this device and you\'ll land right back here.</p>' +
+      '<button class="btn secondary block" style="margin-top:8px" onclick="obSent=false;render()">Use a different email</button>' +
+      '<div class="muted" style="margin-top:16px">No email after a minute? Check spam, or try again.</div>' +
+      demoBlock() + '</div>';
+    return;
+  }
+
   el.innerHTML =
-    '<div class="onboard">' +
-    '<div class="onboard-mark" aria-hidden="true"><svg viewBox="0 0 240 320" width="72" height="96"><path d="M108 200 L118 294 Q120 303 122 294 L132 200 Z" fill="#8C5A2B"/><rect x="72" y="26" width="96" height="184" rx="48" fill="#E89C31"/><rect x="86" y="46" width="15" height="42" rx="7.5" fill="#F6C778"/><path d="M87 138 L105 98 L120 142 L135 98 L153 138" fill="none" stroke="#D64533" stroke-width="14.5" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-4 120 120)"/></svg></div>' +
+    '<div class="onboard">' + mark +
     '<h1>Foodie Finder</h1>' +
-    '<p class="muted">Search, rate, and map the best eats at the Great Minnesota Get-Together.</p>' +
+    '<p class="muted">Find, rate, and share the best eats at the Great Minnesota Get-Together.</p>' +
     '<div class="card" style="text-align:left">' +
-    '<h2 style="font-size:16px;margin:0 0 10px">Create your profile</h2>' +
-    '<button class="oauth-btn" onclick="obOAuth(\'Google\')">🔵 Continue with Google</button>' +
-    '<button class="oauth-btn" onclick="obOAuth(\'Apple\')">🍎 Continue with Apple</button>' +
-    '<button class="oauth-btn" onclick="obOAuth(\'Facebook\')">🟦 Continue with Facebook</button>' +
-    '<div class="muted" style="text-align:center;margin:8px 0">— or with email —</div>' +
+    '<h2 style="font-size:16px;margin:0 0 4px">Create your profile</h2>' +
+    '<p class="muted" style="margin:0 0 12px">' + (realAuth ? 'We\'ll email you a one-tap sign-in link — no password.' : 'Pick a name and jump in.') + '</p>' +
     '<label class="field">Display name<input type="text" id="obName" maxlength="30" placeholder="e.g. Corn Dog Connie" value="' + esc(obNameVal) + '"></label>' +
-    '<label class="field">Email<input type="email" id="obEmail" placeholder="you@example.com" value="' + esc(obEmailVal) + '"></label>' +
-    '<div class="field" style="font-size:13px;font-weight:700">Pick an avatar <span class="muted" style="font-weight:400">(or upload a photo, max 5MB JPEG/PNG)</span>' +
+    (realAuth ? '<label class="field">Email<input type="email" id="obEmail" placeholder="you@example.com" value="' + esc(obEmailVal) + '"></label>' : '') +
+    '<div class="field" style="font-size:13px;font-weight:700">Pick an avatar <span class="muted" style="font-weight:400">(or upload a photo, max 5MB)</span>' +
     '<div class="avatar-pick" role="group" aria-label="Choose avatar">' +
     emojis.map(e => '<button type="button" class="' + (obAvatar === e && !obPhoto ? 'on' : '') + '" onclick="obPick(\'' + e + '\')" aria-label="Avatar ' + e + '">' + e + '</button>').join('') +
     '</div>' +
     '<input type="file" id="obFile" accept="image/png,image/jpeg" aria-label="Upload profile photo" onchange="obUpload(this)">' +
     (obPhoto ? '<div class="muted" style="margin-top:6px">✅ Photo uploaded</div>' : '') +
     '</div>' +
-    '<label class="row" style="font-size:13px;margin-bottom:12px"><input type="checkbox" id="ob2fa" style="width:auto"> Enable two-factor authentication (email)</label>' +
-    '<button class="btn block" onclick="obCreate()">Continue</button>' +
+    '<button class="btn block" id="obGo" onclick="obCreate()">' + (realAuth ? 'Email me a sign-in link' : 'Continue') + '</button>' +
     '</div>' +
-    '<div class="muted" style="margin:14px 0 6px">Just exploring? Jump in as a demo persona:</div>' +
+    demoBlock() + '</div>';
+}
+function demoBlock() {
+  return '<div class="muted" style="margin:16px 0 6px">Just exploring? Jump in as a demo persona:</div>' +
     '<div class="chip-row" style="justify-content:center">' +
     '<button class="chip" onclick="obDemo(\'u_inf2\')">🌟 Allison (influencer)</button>' +
     '<button class="chip" onclick="obDemo(\'u_blog1\')">📝 Blogger</button>' +
     '<button class="chip" onclick="obDemo(\'u_admin\')">🎡 Admin</button>' +
-    '</div></div>';
+    '</div>';
 }
 function obPick(e) { obStash(); obAvatar = e; obPhoto = null; render(); }
 function obUpload(input) {
   obStash();
   readImage(input.files[0], 5, data => { obPhoto = data; toast('Profile photo added'); render(); });
 }
-function obOAuth(provider) {
-  const name = document.getElementById('obName').value.trim() || provider + ' Fairgoer';
-  finishSignup(name, provider);
+function _obProfileData() {
+  const name = (document.getElementById('obName') || {}).value ? document.getElementById('obName').value.trim() : obNameVal;
+  return {
+    name: name || 'Fairgoer',
+    handle: (name || 'fairgoer').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15) || 'fairgoer',
+    avatar: obPhoto || obAvatar,
+  };
 }
-function obCreate() {
+async function obCreate() {
+  const realAuth = typeof authConfigured === 'function' && authConfigured();
   const name = document.getElementById('obName').value.trim();
   if (!name) { toast('Please enter a display name'); return; }
-  if (document.getElementById('ob2fa').checked) toast('🔐 2FA enabled — code sent to your email (demo)');
-  finishSignup(name, 'email');
+  if (!realAuth) { finishSignupLocal(name); return; }
+  const email = (document.getElementById('obEmail').value || '').trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Enter a valid email address'); return; }
+  obEmailVal = email; obNameVal = name;
+  const btn = document.getElementById('obGo');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  const res = await sendMagicLink(email, _obProfileData());
+  if (res.ok) { obSent = true; render(); }
+  else { toast(res.error || 'Could not send the link. Try again.'); if (btn) { btn.disabled = false; btn.textContent = 'Email me a sign-in link'; } }
 }
-function finishSignup(name, provider) {
+/* local (no-backend) signup — used only when accounts aren't configured */
+function finishSignupLocal(name) {
   const u = {
     id: uid('u'), name, handle: name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15) || 'fairgoer',
     avatar: obPhoto || obAvatar, role: 'attendee', verified: false,
@@ -74,8 +100,8 @@ function finishSignup(name, provider) {
     if (inf && !inf.followers.includes(u.id)) inf.followers.push(u.id);
   });
   save();
-  toast('Welcome, ' + name + '! Signed in via ' + provider + ' 🎪');
-  if (resumePendingShare()) { render(); return; } // land on the list that brought them
+  toast('Welcome, ' + name + '! 🎪');
+  if (resumePendingShare()) { render(); return; }
   location.hash = '#/home';
   render();
 }
