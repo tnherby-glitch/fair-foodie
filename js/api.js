@@ -7,11 +7,10 @@ const ListStore = {
   configured() { return !!(BACKEND && BACKEND.url && BACKEND.anonKey); },
 
   _headers(extra) {
-    return Object.assign({
-      'apikey': BACKEND.anonKey,
-      'Authorization': 'Bearer ' + BACKEND.anonKey,
-      'Content-Type': 'application/json',
-    }, extra || {});
+    const h = { 'apikey': BACKEND.anonKey, 'Content-Type': 'application/json' };
+    // legacy JWT anon keys also go in Authorization; new sb_publishable_* keys must not
+    if (/^eyJ/.test(BACKEND.anonKey)) h['Authorization'] = 'Bearer ' + BACKEND.anonKey;
+    return Object.assign(h, extra || {});
   },
 
   /* Publish (upsert) a list so any device can resolve its slug. */
