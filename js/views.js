@@ -17,8 +17,8 @@ function viewOnboarding(el) {
   const emojis = ['😀', '🤠', '🧑‍🌾', '🦆', '🐄', '🌽', '🧀', '🎡', '🎪', '🦄'];
   el.innerHTML =
     '<div class="onboard">' +
-    '<div class="onboard-mark" aria-hidden="true">' + pupSvg() + '</div>' +
-    '<h1>Fair Foodie Guide</h1>' +
+    '<div class="onboard-mark" aria-hidden="true"><svg viewBox="0 0 240 320" width="72" height="96"><path d="M108 200 L118 294 Q120 303 122 294 L132 200 Z" fill="#8C5A2B"/><rect x="72" y="26" width="96" height="184" rx="48" fill="#E89C31"/><rect x="86" y="46" width="15" height="42" rx="7.5" fill="#F6C778"/><path d="M87 138 L105 98 L120 142 L135 98 L153 138" fill="none" stroke="#D64533" stroke-width="14.5" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-4 120 120)"/></svg></div>' +
+    '<h1>Foodie Finder</h1>' +
     '<p class="muted">Search, rate, and map the best eats at the Great Minnesota Get-Together.</p>' +
     '<div class="card" style="text-align:left">' +
     '<h2 style="font-size:16px;margin:0 0 10px">Create your profile</h2>' +
@@ -130,7 +130,7 @@ function viewHome(el) {
     '<div class="section-title"><span>New this year</span><a class="see-all" href="#/search?new=1">Show all</a></div>' +
     '<div class="hlist" role="list">' + fresh.map(foodMiniCardHtml).join('') + '</div>' +
 
-    '<div class="section-title"><span>Trending now</span></div>' +
+    '<div class="section-title"><span>Trending on the midway</span></div>' +
     '<div class="grid2">' + trend.map(foodCardHtml).join('') + '</div>';
 }
 
@@ -282,7 +282,7 @@ function viewFood(el, id) {
     '</div>' +
     '<div class="action-row">' +
     '<button class="btn" onclick="openRateModal(\'' + f.id + '\')">Rate & review</button>' +
-    '<button class="btn ghost" onclick="openAddToList(\'' + f.id + '\')">Save to list</button>' +
+    '<button class="btn secondary" onclick="openAddToList(\'' + f.id + '\')">Add to my list</button>' +
     '<button class="btn ghost" onclick="location.hash=\'#/map?vendor=' + v.id + '\'">Find booth</button>' +
     (myVendor || u.role === 'admin' ? '<button class="btn ghost" onclick="openHeroModal(\'' + f.id + '\')">Official photo</button>' : '') +
     '</div>' +
@@ -450,14 +450,14 @@ function viewLists(el) {
   const discover = S.lists.filter(l => l.ownerId !== u.id && !l.collaborators.includes(u.id) && !spIds.includes(l.id) &&
     (l.privacy === 'public' || (l.privacy === 'friends' && getUser(l.ownerId).followers.includes(u.id))));
   el.innerHTML =
-    '<div class="row between"><h1 style="font-size:21px;font-weight:700;margin:4px 0 14px">Lists</h1>' +
+    '<div class="row between"><h1 class="greet" style="margin:4px 0 14px">My Lists</h1>' +
     '<button class="btn small secondary" onclick="openNewList()">+ New list</button></div>' +
     (sponsored.length ?
       '<div class="muted" style="margin:0 2px 6px;font-size:11.5px;letter-spacing:.3px"><b style="color:var(--ink)">Sponsored</b> · influencer lists</div>' +
       sponsored.map(l => listRowHtml(l, { sponsored: true })).join('') : '') +
     '<div class="section-title"><span>Your lists</span></div>' +
     (mine.length ? mine.map(l => listRowHtml(l)).join('') :
-      '<div class="empty"><span class="big">📋</span>No lists yet. Make one to plan your fair day!</div>') +
+      '<div class="empty"><span class="big">📋</span>Your list is empty.<br>Go find something on a stick.</div>') +
     (discover.length ? '<div class="section-title"><span>Discover lists</span></div>' +
       discover.map(l => listRowHtml(l)).join('') : '');
 }

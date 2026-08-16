@@ -395,7 +395,8 @@ function viewProfile(el) {
     '<div class="stat"><b>' + (avg ? avg.toFixed(1) + ' ' + pupOne(true) : '—') + '</b><span>Avg rating</span></div>' +
     '</div>' +
     '<div class="row" style="justify-content:center;flex-wrap:wrap">' +
-    '<button class="btn small secondary" onclick="openEditProfile()">✏️ Edit profile</button>' +
+    '<button class="btn small secondary" onclick="openEditProfile()">Edit profile</button>' +
+    '<button class="btn small ghost" onclick="location.hash=\'#/feed\'">Community feed</button>' +
     (u.role === 'vendor' ? '<button class="btn small" onclick="location.hash=\'#/vendor\'">🏪 Vendor dashboard</button>' : '') +
     (u.role === 'admin' ? '<button class="btn small" onclick="location.hash=\'#/admin\'">🛡️ Admin console</button>' : '') +
     (u.role === 'influencer' ? '<button class="btn small yellow" onclick="openInfluencerStats()">📊 My analytics</button>' : '') +

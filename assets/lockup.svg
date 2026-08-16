@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 240" width="780" height="240">
+  <!-- MN Fair Foodie Finder — horizontal lockup -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&amp;family=Plus+Jakarta+Sans:wght@700&amp;display=swap');
+    .eyebrow { font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif; font-weight: 700; font-size: 27px; letter-spacing: 8px; fill: #D64533; }
+    .name { font-family: 'Bricolage Grotesque', 'Segoe UI', sans-serif; font-weight: 800; font-size: 66px; fill: #211A16; letter-spacing: -1px; }
+  </style>
+  <g transform="translate(24,22) scale(0.61)">
+    <path d="M108 200 L118 294 Q120 303 122 294 L132 200 Z" fill="#8C5A2B"/>
+    <rect x="72" y="26" width="96" height="184" rx="48" fill="#E89C31"/>
+    <rect x="86" y="46" width="15" height="42" rx="7.5" fill="#F6C778"/>
+    <path d="M87 138 L105 98 L120 142 L135 98 L153 138" fill="none" stroke="#D64533" stroke-width="14.5" stroke-linecap="round" stroke-linejoin="round" transform="rotate(-4 120 120)"/>
+  </g>
+  <text x="204" y="104" class="eyebrow">MN FAIR</text>
+  <text x="200" y="176" class="name">Foodie Finder</text>
+</svg>

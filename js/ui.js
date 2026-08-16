@@ -49,12 +49,11 @@ function closeModal() {
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-/* Pronto Pup rating display — a battered corn dog on a stick, drawn as SVG */
+/* Prontopup rating — the brand's simplified pup glyph: capsule + stick, no drizzle */
 function pupSvg() {
-  return '<svg class="pup-ico" viewBox="0 0 24 24" aria-hidden="true">' +
-    '<rect class="pup-stick" x="11.1" y="13.5" width="1.8" height="9.5" rx=".9"/>' +
-    '<rect class="pup-body" x="5.4" y="1.2" width="13.2" height="15.8" rx="6.6"/>' +
-    '<path class="pup-glaze" d="M8 5.4c1.6 1.1 6.4 1.1 8 0M8 8.2c1.6 1.1 6.4 1.1 8 0M8 11c1.6 1.1 6.4 1.1 8 0" />' +
+  return '<svg class="pup-ico" viewBox="0 0 240 320" aria-hidden="true">' +
+    '<path class="pup-stick" d="M108 200 L118 294 Q120 303 122 294 L132 200 Z"/>' +
+    '<rect class="pup-body" x="72" y="26" width="96" height="184" rx="48"/>' +
     '</svg>';
 }
 function pupOne(on) {
@@ -63,14 +62,17 @@ function pupOne(on) {
 function pups(n, opts) {
   opts = opts || {};
   let h = '<span class="pups' + (opts.big ? ' big' : '') + '" role="img" aria-label="' +
-    (n ? n.toFixed(1) + ' out of 5 Pronto Pups' : 'Not yet rated') + '">';
+    (n ? n.toFixed(1) + ' out of 5 pups' : 'Not yet rated') + '">';
   for (let i = 1; i <= 5; i++) h += pupOne(i <= Math.round(n));
   return h + '</span>';
 }
+function fmtCount(n) {
+  return n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(n);
+}
 function ratingLine(foodId) {
   const r = foodRating(foodId);
-  if (!r.count) return '<span class="rating-line"><span class="muted">No ratings yet</span></span>';
-  return '<span class="rating-line">' + pupOne(true) + ' <b>' + r.avg.toFixed(1) + '</b> <span class="muted">· ' + r.count + ' review' + (r.count > 1 ? 's' : '') + '</span></span>';
+  if (!r.count) return '<span class="rating-line"><span class="muted">Not rated yet — be the first</span></span>';
+  return '<span class="rating-line">' + pups(r.avg) + ' <b>' + r.avg.toFixed(1) + '</b> <span class="muted">(' + fmtCount(r.count) + ')</span></span>';
 }
 
 function avatarHtml(user, cls) {
@@ -100,13 +102,14 @@ function foodPhoto(f) {
   return r ? r.photos[0] : null;
 }
 
+/* brand-board placeholder gradients: gold, ketchup, ribbon-soft — no pink/coral */
 const CAT_GRADS = {
-  'Deep Fried': ['#ece3d2', '#d8c6a6'],
-  'On a Stick': ['#e9ded0', '#d0bda1'],
-  'Sweet':      ['#ebe0dd', '#d6c1bd'],
-  'Savory':     ['#e8e4da', '#cabfa8'],
-  'Drinks':     ['#e0e6e7', '#bfccce'],
-  'Dairy':      ['#eae6dc', '#cfc8b5'],
+  'Deep Fried': ['#F6C778', '#E89C31'],
+  'On a Stick': ['#F1DAB2', '#DFAE59'],
+  'Sweet':      ['#F3A08F', '#D64533'],
+  'Savory':     ['#EFE7D8', '#D9C8A8'],
+  'Drinks':     ['#9DB6E8', '#2B4C9B'],
+  'Dairy':      ['#FFF3DE', '#EED9AE'],
 };
 /* image precedence: uploaded hero -> official new-food photo -> latest guest
    photo -> vendor's official photo -> category placeholder */
@@ -115,7 +118,8 @@ function photoHtml(f, cls) {
   const img = f.heroImg || f.photo || foodPhoto(f) || (v && v.photo) || null;
   const g = CAT_GRADS[f.cats[0]] || CAT_GRADS.Savory;
   let badges = '';
-  if (f.isNew) badges += '<span class="pbadge">New 2026</span>';
+  if (typeof blueRibbon === 'function' && blueRibbon(f.id)) badges += '<span class="pbadge ribbon">BLUE RIBBON</span>';
+  else if (f.isNew) badges += '<span class="pbadge">New for 2026</span>';
   if (f.soldOut) badges += '<span class="pbadge dark">Sold out</span>';
   return '<div class="photo' + (cls ? ' ' + cls : '') + '"' +
     (img ? ' style="background-image:url(' + img + ')"'
@@ -124,11 +128,12 @@ function photoHtml(f, cls) {
     badges + '</div>';
 }
 
-/* compact rating: one pup + score */
+/* compact rating: one pup + score + count, e.g. "4.7 (1.8k)" */
 function ratingCompact(foodId) {
   const r = foodRating(foodId);
-  return '<span class="rate" aria-label="' + (r.count ? r.avg.toFixed(1) + ' out of 5 Pronto Pups' : 'Not yet rated') + '">' +
-    pupOne(!!r.count) + ' ' + (r.count ? r.avg.toFixed(1) : '—') + '</span>';
+  if (!r.count) return '<span class="rate" aria-label="Not yet rated">' + pupOne(false) + ' <span class="count">—</span></span>';
+  return '<span class="rate" aria-label="' + r.avg.toFixed(1) + ' out of 5 pups, ' + r.count + ' ratings">' +
+    pupOne(true) + ' ' + r.avg.toFixed(1) + ' <span class="count">(' + fmtCount(r.count) + ')</span></span>';
 }
 
 function foodCardHtml(f) {

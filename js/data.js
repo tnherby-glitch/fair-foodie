@@ -6,7 +6,7 @@
 /* global CATALOG, localStorage */
 
 const DB_KEY = 'fairfoodie_user_v1';
-const DATA_VERSION = 10;
+const DATA_VERSION = 11;
 let S = null;      // global app state (user state + in-memory catalog)
 let dataRev = 0;   // bumped on every save so cached indexes can invalidate
 
@@ -22,7 +22,7 @@ const store = (() => {
 })();
 
 /* keys persisted to localStorage — catalog arrays are never persisted */
-const USER_KEYS = ['version', 'currentUserId', 'defaultListId', 'users', 'reviews', 'lists',
+const USER_KEYS = ['version', 'currentUserId', 'defaultListId', 'users', 'reviews', 'lists', 'baseRatings',
   'reports', 'vendorRequests', 'activity', 'notifications', 'challenges', 'pushLog',
   'analytics', 'amenities', 'foodOverrides', 'vendorOverrides'];
 
@@ -113,7 +113,15 @@ function ratingsIndex() {
 }
 function foodRating(foodId) {
   const e = ratingsIndex()[foodId];
-  return e ? { avg: e.sum / e.n, count: e.n } : { avg: 0, count: 0 };
+  const b = (S.baseRatings && S.baseRatings[foodId]) || null;
+  let sum = e ? e.sum : 0, n = e ? e.n : 0;
+  if (b) { sum += b.avg * b.count; n += b.count; }
+  return n ? { avg: sum / n, count: n } : { avg: 0, count: 0 };
+}
+/* Blue Ribbon is earned: 4.8+ with 100+ ratings. Never decorative. */
+function blueRibbon(foodId) {
+  const r = foodRating(foodId);
+  return r.count >= 100 && r.avg >= 4.8;
 }
 function listCountForFood(foodId) {
   return S.lists.filter(l => l.foodIds.includes(foodId)).length;
@@ -301,6 +309,26 @@ function seedUserState() {
     F("Surf 'N' Turf Burger", 'Caribe'),                 // 50
   ]);
 
+  /* Community baseline ratings (aggregate texture; Blue Ribbon = 4.8+ & 100+ only).
+     Exactly three foods earn the ribbon at seed time. */
+  const baseRatings = {};
+  const setBase = (id, avg, count) => { if (id) baseRatings[id] = { avg, count }; };
+  setBase(idProntoPup, 4.9, 2100);                       // 🏆 ribbon
+  setBase(F('Sweet Corn On-The-Cob', 'Corn Roast'), 4.8, 1150); // 🏆 ribbon
+  setBase(idLumpia, 4.9, 320);                            // 🏆 ribbon — new-food winner
+  setBase(idCurds, 4.7, 1800);
+  setBase(idChocChip, 4.5, 3400);
+  setBase(idMilk, 4.6, 2600);
+  setBase(idPicklePie, 4.6, 540);
+  setBase(F('Bacon On-A-Stick', 'Big Fat Bacon'), 4.4, 610);
+  setBase(F('Apple Fries', 'Apple Fries'), 4.5, 480);
+  setBase(idElote, 4.3, 390);
+  setBase(idHmong, 4.7, 210);
+  setBase(F('Garlic Fries', 'Ball Park'), 4.1, 500);
+  setBase(F('Original Minneapple Pie'), 4.4, 700);
+  setBase(F('Dole Soft Serve Cup', 'Tasti Whip'), 4.3, 450);
+  setBase(F('The Amish Doughnut', 'Peachey'), 4.6, 820);
+
   const lists = [
     { id: 'l0', name: 'Allison\'s 2026 Fair List', ownerId: 'u_inf2', foodIds: allison2026, privacy: 'public', featured: true, likes: ['u_inf1', 'u_blog1', 'u_reg1', 'u_reg2'], ratings: { u_reg1: 5, u_reg2: 5, u_blog1: 5, u_inf1: 4 }, views: 9214, comments: [], collaborators: [], ts: now - 7 * D },
     { id: 'l1', name: 'Maddy\'s Top 10 Must-Eats 2026', ownerId: 'u_inf1', foodIds: ids([idProntoPup, idCurds, idCornRibs, idChocChip, idLumpia, idWalleye, idRoastCorn, idMiniDonut, idPicklePie, idMilk]), privacy: 'public', featured: true, likes: ['u_reg1', 'u_reg2', 'u_blog1'], ratings: { u_reg1: 5, u_reg2: 5, u_blog1: 4 }, views: 4821, comments: [{ id: 'lc1', userId: 'u_reg1', text: 'Used this list all day Saturday — flawless routing!', ts: now - 1 * D }], collaborators: [], ts: now - 6 * D },
@@ -334,7 +362,7 @@ function seedUserState() {
     version: DATA_VERSION,
     currentUserId: null,
     defaultListId: 'l0', // Allison's list — the default sponsored placement for every user
-    users, reviews, lists, reports, activity, amenities,
+    users, reviews, lists, reports, activity, amenities, baseRatings,
     vendorRequests: [],
     foodOverrides: {},
     vendorOverrides,

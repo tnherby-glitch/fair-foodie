@@ -34,8 +34,8 @@ function render() {
   tabbar.style.display = 'flex';
   topActions.style.visibility = 'visible';
 
-  // active tab highlight
-  const tabFor = { home: 'home', search: 'search', food: 'search', map: 'map', lists: 'lists', list: 'lists', feed: 'feed', user: 'feed', notifications: 'home', profile: 'home', vendor: 'home', admin: 'home' };
+  // active tab highlight (4-tab IA: Explore, Map, My Lists, Profile)
+  const tabFor = { home: 'explore', search: 'explore', food: 'explore', map: 'map', lists: 'lists', list: 'lists', feed: 'profile', user: 'profile', notifications: 'profile', profile: 'profile', vendor: 'profile', admin: 'profile' };
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === (tabFor[page] || '')));
 
   switch (page) {
