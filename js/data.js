@@ -6,7 +6,7 @@
 /* global CATALOG, localStorage */
 
 const DB_KEY = 'fairfoodie_user_v1';
-const DATA_VERSION = 8;
+const DATA_VERSION = 9;
 let S = null;      // global app state (user state + in-memory catalog)
 let dataRev = 0;   // bumped on every save so cached indexes can invalidate
 
@@ -175,6 +175,13 @@ function findVendorId(q) {
   const v = CATALOG.vendors.find(x => x.name.toLowerCase().includes(vq));
   return v ? v.id : null;
 }
+/* first (preferring official-new) food at a vendor, for list entries that name a stand */
+function findVendorFoodId(vendorQ) {
+  const vid = findVendorId(vendorQ);
+  if (!vid) return null;
+  const f = CATALOG.foods.find(x => x.vendorId === vid && x.official) || CATALOG.foods.find(x => x.vendorId === vid);
+  return f ? f.id : null;
+}
 
 /* ---------- seed: demo users + social content on top of the real catalog ---------- */
 function seedUserState() {
@@ -239,8 +246,33 @@ function seedUserState() {
   const officialIds = CATALOG.foods.filter(f => f.official).map(f => f.id);
   const ids = arr => arr.filter(Boolean);
 
+  /* Allison's real 2026 list (from her fair spreadsheet, matched to the catalog).
+     Entries naming a stand rather than a dish resolve to that stand's signature item. */
+  const allison2026 = ids([
+    findVendorFoodId('Nitro Ice Cream'),
+    F('Strawberry Ube Sundae Tart'),
+    F('Breakfast Gnocchi', 'Blue Barn'),
+    F('Pickle dog'),
+    F('Chocolate Chip Cookies', 'Sweet Martha'),
+    F('Bacon On-A-Stick', 'Big Fat Bacon'),
+    F('Dole Soft Serve', 'Tasti Whip'),
+    F('Shave Ice', 'Minnesnowii'),
+    F('Pickle Pizza', "Rick's"),
+    F('Pink Guava Slushie'),
+    F('Minneapple Pie'),
+    F('Milk', 'All You Can Drink Milk'),
+    F('Blue Cheese & Corn Fritz'),
+    F('Chicken in the Waffle'),
+    F('Iron Range Pierogies'),
+    F('Sweet Corn On-The-Cob', 'Corn Roast'),
+    F('Jamaican jerk chicken wings', 'West Indies'),
+    F('Mini Donut Latte', 'Anchor'),
+    F('Brisket Cheese Curd Taco', 'Richie'),
+    F('Spicy Thai noodles', 'Oodles'),
+  ]);
+
   const lists = [
-    { id: 'l0', name: 'Allison\'s Fair Food Crawl', ownerId: 'u_inf2', foodIds: ids([idPicklePie, idLumpia, idProntoPup, idGrinder, idCurds, idPeriPeri, idChocChip, idMilk]), privacy: 'public', featured: true, likes: ['u_inf1', 'u_blog1', 'u_reg1', 'u_reg2'], ratings: { u_reg1: 5, u_reg2: 5, u_blog1: 5, u_inf1: 4 }, views: 9214, comments: [], collaborators: [], ts: now - 7 * D },
+    { id: 'l0', name: 'Allison\'s 2026 Fair List', ownerId: 'u_inf2', foodIds: allison2026, privacy: 'public', featured: true, likes: ['u_inf1', 'u_blog1', 'u_reg1', 'u_reg2'], ratings: { u_reg1: 5, u_reg2: 5, u_blog1: 5, u_inf1: 4 }, views: 9214, comments: [], collaborators: [], ts: now - 7 * D },
     { id: 'l1', name: 'Maddy\'s Top 10 Must-Eats 2026', ownerId: 'u_inf1', foodIds: ids([idProntoPup, idCurds, idCornRibs, idChocChip, idLumpia, idWalleye, idRoastCorn, idMiniDonut, idPicklePie, idMilk]), privacy: 'public', featured: true, likes: ['u_reg1', 'u_reg2', 'u_blog1'], ratings: { u_reg1: 5, u_reg2: 5, u_blog1: 4 }, views: 4821, comments: [{ id: 'lc1', userId: 'u_reg1', text: 'Used this list all day Saturday — flawless routing!', ts: now - 1 * D }], collaborators: [], ts: now - 6 * D },
     { id: 'l2', name: 'New This Year: Worth the Hype?', ownerId: 'u_inf1', foodIds: ids([idPicklePie, idCornRibs, idLumpia, idHmong, idElote, idPeriPeri, idSparkler, idDillCookie]).length >= 4 ? ids([idPicklePie, idCornRibs, idLumpia, idHmong, idElote, idPeriPeri, idSparkler, idDillCookie]) : officialIds.slice(0, 8), privacy: 'public', featured: true, likes: ['u_blog1'], ratings: { u_blog1: 4, u_reg2: 4 }, views: 2214, comments: [], collaborators: [], ts: now - 4 * D },
     { id: 'l3', name: 'Ole\'s Classic Circuit', ownerId: 'u_blog1', foodIds: ids([idProntoPup, idMilk, idRoastCorn, idCurds, idMiniDonut]), privacy: 'public', featured: false, likes: ['u_reg1'], ratings: { u_reg1: 4 }, views: 640, comments: [], collaborators: [], ts: now - 3 * D },
