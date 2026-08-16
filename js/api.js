@@ -13,17 +13,54 @@ const ListStore = {
     return Object.assign(h, extra || {});
   },
 
-  /* Publish (upsert) a list so any device can resolve its slug. */
+  /* Publish a list so any device can resolve its slug.
+     Writes go through the publish_list RPC: the first publisher's owner token
+     claims the slug; only that token can update it. Falls back to the legacy
+     open upsert if the v2 migration hasn't been applied yet. */
   async publish(list, owner) {
     if (!this.configured()) return null;
+    if (!list.ownerToken) { list.ownerToken = _uuid4(); save(); }
+    const attempt = async () => {
+      const r = await fetch(BACKEND.url + '/rest/v1/rpc/publish_list', {
+        method: 'POST',
+        headers: this._headers(),
+        body: JSON.stringify({
+          p_slug: list.slug,
+          p_title: list.name,
+          p_handle: owner ? owner.handle : 'fairgoer',
+          p_name: owner ? owner.name : 'A fair foodie',
+          p_food_ids: list.foodIds,
+          p_token: list.ownerToken,
+        }),
+      });
+      return r;
+    };
+    try {
+      let r = await attempt();
+      if (r.status === 404) return this._legacyPublish(list, owner); // migration not applied yet
+      let result = r.ok ? await r.json() : null;
+      if (result === 'slug_taken') {
+        // someone else owns that slug — take a fresh one and retry once
+        list.aliases = list.aliases || [];
+        list.slug = slugify(list.name) + '-' + _uuid4().slice(0, 6);
+        save();
+        r = await attempt();
+        result = r.ok ? await r.json() : null;
+      }
+      const ok = result === 'created' || result === 'updated';
+      if (ok) this.recordEvent(list.slug, 'publish');
+      else if (result) console.warn('publish rejected:', result);
+      return ok;
+    } catch (e) { console.warn('publish failed', e); return null; }
+  },
+
+  async _legacyPublish(list, owner) {
     try {
       const body = [{
-        slug: list.slug,
-        title: list.name,
+        slug: list.slug, title: list.name,
         creator_handle: owner ? owner.handle : 'fairgoer',
         creator_name: owner ? owner.name : 'A fair foodie',
-        food_ids: list.foodIds,
-        updated_at: new Date().toISOString(),
+        food_ids: list.foodIds, updated_at: new Date().toISOString(),
       }];
       const r = await fetch(BACKEND.url + '/rest/v1/shared_lists?on_conflict=slug', {
         method: 'POST',
@@ -32,7 +69,7 @@ const ListStore = {
       });
       if (r.ok) this.recordEvent(list.slug, 'publish');
       return r.ok;
-    } catch (e) { console.warn('publish failed', e); return null; }
+    } catch (e) { return null; }
   },
 
   /* Resolve a slug: local list first (seeded or own), then the backend. */
@@ -83,6 +120,15 @@ const ListStore = {
     } catch (e) { return null; }
   },
 };
+
+/* uuid v4 (owner tokens) with a fallback for older WebViews */
+function _uuid4() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
 
 /* slug helpers */
 function slugify(t) {

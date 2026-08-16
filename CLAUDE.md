@@ -28,9 +28,21 @@ components, motion, and voice. Key invariants:
 
 ## Deploy
 
+Always deploy via the script — it stamps asset versions so the CDN serves
+fresh JS/CSS immediately (index.html loads pages instantly; assets are
+cache-busted):
+
 ```
-git push origin main
-git push -f origin main:gh-pages
+powershell -File tools\deploy.ps1 -Message "What changed"
 ```
 
-Live at https://tnherby-glitch.github.io/fair-foodie/ (CDN caches ~10 min).
+Live at https://tnherby-glitch.github.io/fair-foodie/
+
+## Backend (Supabase)
+
+- `js/config.js` holds the project URL + publishable key (public by design).
+  NEVER put an sb_secret key in the repo.
+- Writes go through the `publish_list` RPC with per-list owner tokens
+  (first publisher owns the slug). Schema: `docs/backend/schema.sql` then
+  `docs/backend/schema-v2-launch.sql`.
+- Takedowns: Supabase Table Editor → shared_lists → set `hidden = true`.
