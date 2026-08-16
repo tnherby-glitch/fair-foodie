@@ -282,7 +282,7 @@ function viewFood(el, id) {
     '<div class="action-row">' +
     '<button class="btn" onclick="openRateModal(\'' + f.id + '\')">Rate & review</button>' +
     '<button class="btn secondary" onclick="openAddToList(\'' + f.id + '\')">Add to my list</button>' +
-    '<button class="btn ghost" onclick="location.hash=\'#/map?vendor=' + v.id + '\'">Find booth</button>' +
+    '<button class="btn ghost" onclick="location.hash=\'#/vendor/' + v.id + '\'">See vendor</button>' +
     (u.role === 'admin' ? '<button class="btn ghost" onclick="openHeroModal(\'' + f.id + '\')">Official photo</button>' : '') +
     '</div>' +
     (v.specials ? '<div class="notice"><span aria-hidden="true">🎉</span><span><b>Today:</b> ' + esc(v.specials) + '</span></div>' : '') +
