@@ -442,18 +442,24 @@ function viewProfile(el) {
       '<div style="font-size:13.5px;margin-top:3px">' + esc(r.text) + '</div></div>').join('') + '</div>' :
       '<div class="empty">No reviews yet — go eat something!</div>') +
 
-    '<div class="card" style="margin-top:16px">' +
-    '<h3 style="margin:0 0 8px;font-size:14px">🧪 Demo controls</h3>' +
-    '<div class="row" style="flex-wrap:wrap">' +
-    '<select id="personaSel" class="grow" aria-label="Switch demo persona">' +
-    S.users.filter(x => !x.banned).map(x => '<option value="' + x.id + '" ' + (x.id === u.id ? 'selected' : '') + '>' + esc(x.name) + ' (' + x.role + ')</option>').join('') +
-    '</select>' +
-    '<button class="btn small secondary" onclick="switchPersona()">Switch</button>' +
-    '</div>' +
-    '<div class="row" style="margin-top:8px">' +
-    '<button class="btn small ghost grow" onclick="signOut()">Sign out</button>' +
-    '<button class="btn small ghost grow" onclick="if(confirm(\'Reset all demo data?\')){resetState();location.hash=\'#/home\';render();}">Reset demo data</button>' +
-    '</div></div>';
+    ((typeof demoMode === 'function' && demoMode()) ?
+      '<div class="card" style="margin-top:16px">' +
+      '<h3 style="margin:0 0 8px;font-size:14px">🧪 Demo controls</h3>' +
+      '<div class="row" style="flex-wrap:wrap">' +
+      '<select id="personaSel" class="grow" aria-label="Switch demo persona">' +
+      S.users.filter(x => !x.banned).map(x => '<option value="' + x.id + '" ' + (x.id === u.id ? 'selected' : '') + '>' + esc(x.name) + ' (' + x.role + ')</option>').join('') +
+      '</select>' +
+      '<button class="btn small secondary" onclick="switchPersona()">Switch</button>' +
+      '</div>' +
+      '<div class="row" style="margin-top:8px">' +
+      '<button class="btn small ghost grow" onclick="signOut()">Sign out</button>' +
+      '<button class="btn small ghost grow" onclick="if(confirm(\'Reset all demo data?\')){resetState();location.hash=\'#/home\';render();}">Reset demo data</button>' +
+      '</div></div>'
+    :
+      '<div class="card" style="margin-top:16px">' +
+      '<div class="row" style="margin-top:2px">' +
+      '<button class="btn small ghost grow" onclick="signOut()">Sign out</button>' +
+      '</div></div>');
 }
 function switchPersona() {
   S.currentUserId = document.getElementById('personaSel').value;
@@ -633,21 +639,34 @@ function adminBodyHtml() {
         '</div></div>').join('');
   }
   if (adminTab === 'analytics') {
-    const max = Math.max.apply(null, S.analytics.dau);
+    const demo = (typeof demoMode === 'function' && demoMode());
     const mostReviewed = S.foods.slice().sort((a, b) => foodReviews(b.id).length - foodReviews(a.id).length).slice(0, 5);
-    return '<div class="card"><h3 style="margin:0;font-size:14px">Daily active users</h3>' +
-      '<div class="bars" role="img" aria-label="Daily active users, peaked Tuesday at 15,800">' +
-      S.analytics.dau.map((d, i) => '<div class="bar" style="height:' + Math.round(d / max * 100) + '%;background:var(--blue)"><em>' + (d / 1000).toFixed(1) + 'k</em><span>' + S.analytics.days[i] + '</span></div>').join('') +
-      '</div><div style="height:22px"></div></div>' +
-      '<div class="card"><h3 style="margin:0 0 6px;font-size:14px">Top searches</h3><div class="chip-row">' +
-      S.analytics.topSearches.map(t => '<span class="chip">' + esc(t) + '</span>').join('') + '</div></div>' +
+    // Daily-active and top-searches are illustrative sample figures — shown only in demo mode.
+    let head = '';
+    if (demo) {
+      const max = Math.max.apply(null, S.analytics.dau);
+      head = '<div class="card"><h3 style="margin:0;font-size:14px">Daily active users <span class="muted" style="font-weight:600">· sample</span></h3>' +
+        '<div class="bars" role="img" aria-label="Sample daily active users">' +
+        S.analytics.dau.map((d, i) => '<div class="bar" style="height:' + Math.round(d / max * 100) + '%;background:var(--blue)"><em>' + (d / 1000).toFixed(1) + 'k</em><span>' + S.analytics.days[i] + '</span></div>').join('') +
+        '</div><div style="height:22px"></div></div>' +
+        '<div class="card"><h3 style="margin:0 0 6px;font-size:14px">Top searches <span class="muted" style="font-weight:600">· sample</span></h3><div class="chip-row">' +
+        S.analytics.topSearches.map(t => '<span class="chip">' + esc(t) + '</span>').join('') + '</div></div>';
+    } else {
+      head = '<div class="card"><p class="muted" style="margin:0;font-size:13.5px">Traffic analytics will appear here once the app is live and collecting real usage. The figures below are computed from actual review data.</p></div>';
+    }
+    return head +
       '<div class="card"><h3 style="margin:0 0 6px;font-size:14px">Most reviewed foods</h3><table class="table">' +
       mostReviewed.map(f => '<tr><td>' + f.emoji + ' ' + esc(f.name) + '</td><td>' + foodReviews(f.id).length + ' reviews</td><td>' + (foodRating(f.id).avg || 0).toFixed(1) + ' ' + pupOne(true) + '</td></tr>').join('') +
       '</table></div>' +
       '<button class="btn secondary block" onclick="adminExport()">⬇️ Export data (JSON)</button>';
   }
   if (adminTab === 'push') {
-    return '<div class="card"><h3 style="margin:0 0 8px;font-size:14px">Send push notification</h3>' +
+    const demo = (typeof demoMode === 'function' && demoMode());
+    if (!demo) {
+      return '<div class="card"><h3 style="margin:0 0 8px;font-size:14px">Push notifications</h3>' +
+        '<p class="muted" style="margin:0;font-size:13.5px">Broadcast push isn\'t connected to a delivery service yet. This is where you\'ll send weather alerts and announcements once push is wired up for launch.</p></div>';
+    }
+    return '<div class="card"><h3 style="margin:0 0 8px;font-size:14px">Send push notification <span class="muted" style="font-weight:600">· in-app demo</span></h3>' +
       '<label class="field">Audience<select id="pushSeg"><option value="all">All users</option><option value="attendee">Attendees</option><option value="influencer">Influencers</option></select></label>' +
       '<label class="field">Message<textarea id="pushMsg" maxlength="180" placeholder="e.g. Severe weather: seek shelter in the Coliseum."></textarea></label>' +
       '<button class="btn block" onclick="adminPush()">📣 Send now</button></div>' +
@@ -658,7 +677,16 @@ function adminBodyHtml() {
 }
 function adminRemove(repId) {
   const rep = S.reports.find(r => r.id === repId);
-  if (rep.type === 'review') { const r = getReview(rep.targetId); if (r) r.removed = true; }
+  if (rep.type === 'review') {
+    const r = getReview(rep.targetId);
+    if (r) {
+      r.removed = true;
+      // real community review: hide it on the server too (server enforces is_admin)
+      if (typeof hideReview === 'function' && typeof authIsReal === 'function' && authIsReal()) {
+        hideReview(r.id, true).then(ok => { if (!ok) toast('Hidden locally — you need an admin account to hide it for everyone.'); });
+      }
+    }
+  }
   rep.status = 'resolved';
   save(); render();
   toast('Content removed');

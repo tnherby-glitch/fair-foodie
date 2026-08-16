@@ -32,7 +32,7 @@ function authInit() {
 
 async function fetchProfile(id) {
   try {
-    const { data, error } = await sbClient.from('profiles').select('id,handle,name,avatar,bio').eq('id', id).maybeSingle();
+    const { data, error } = await sbClient.from('profiles').select('id,handle,name,avatar,bio,is_admin').eq('id', id).maybeSingle();
     return error ? null : data;
   } catch (e) { return null; }
 }
@@ -72,6 +72,7 @@ async function applySession(session) {
   mergeAuthUser(profile, session.user.email);
   S.currentUserId = authUid;
   save();
+  loadUserLists(); // pull this account's lists from the server (async, re-renders)
   return profile;
 }
 
@@ -84,7 +85,7 @@ function mergeAuthUser(profile, email) {
       avatar: profile.avatar || '🙂', role: 'attendee', verified: false,
       bio: profile.bio || 'Here for the food.', email: email || '',
       followers: [], following: ['u_inf2', 'u_inf1'], badges: [], banned: false, warned: 0, qualityReviews: 0,
-      real: true,
+      real: true, isAdmin: !!profile.is_admin, role: profile.is_admin ? 'admin' : 'attendee',
     };
     S.users.push(u);
     ['u_inf2', 'u_inf1'].forEach(id => { const inf = getUser(id); if (inf && !inf.followers.includes(u.id)) inf.followers.push(u.id); });
@@ -94,6 +95,8 @@ function mergeAuthUser(profile, email) {
     u.avatar = profile.avatar || u.avatar;
     if (profile.bio) u.bio = profile.bio;
     u.real = true;
+    u.isAdmin = !!profile.is_admin;
+    if (profile.is_admin) u.role = 'admin';
   }
   return u;
 }
@@ -150,4 +153,95 @@ function syncProfile() {
   if (!authIsReal() || !sbClient) return;
   const u = getUser(S.currentUserId);
   upsertProfile(u.id, { name: u.name, handle: u.handle, avatar: u.avatar, bio: u.bio });
+}
+
+/* ---------- personal list sync (Phase 2) ----------
+   A real user's own lists persist to user_lists so they follow the account.
+   Uses the authenticated supabase client, so RLS sees auth.uid(). */
+let _listSyncTimer = null;
+function onSaveSync() {
+  if (!authIsReal() || !sbClient) return;
+  clearTimeout(_listSyncTimer);
+  _listSyncTimer = setTimeout(flushListSync, 800);
+}
+async function flushListSync() {
+  if (!authIsReal() || !sbClient) return;
+  const owner = S.currentUserId;
+  const rows = S.lists.filter(l => l.ownerId === owner).map(l => ({
+    id: l.id, owner: owner, name: l.name, food_ids: l.foodIds || [],
+    privacy: l.privacy || 'private', slug: l.slug || null, ratings: l.ratings || {},
+    updated_at: new Date().toISOString(),
+  }));
+  if (!rows.length) return;
+  try { await sbClient.from('user_lists').upsert(rows); } catch (e) { console.warn('list sync', e); }
+}
+async function loadUserLists() {
+  if (!authIsReal() || !sbClient) return;
+  try {
+    const { data, error } = await sbClient.from('user_lists').select('*').eq('owner', S.currentUserId);
+    if (error || !data) return;
+    data.forEach(r => {
+      const existing = S.lists.find(l => l.id === r.id);
+      const fields = {
+        id: r.id, name: r.name, ownerId: S.currentUserId, foodIds: r.food_ids || [],
+        privacy: r.privacy, slug: r.slug || undefined, ratings: r.ratings || {},
+        featured: false, likes: [], views: 0, comments: [], collaborators: [],
+        ts: new Date(r.created_at).getTime(),
+      };
+      if (existing) Object.assign(existing, fields); else S.lists.push(fields);
+    });
+    save();
+    if (typeof render === 'function') render();
+  } catch (e) { console.warn('load lists', e); }
+}
+async function deleteUserList(id) {
+  if (!authIsReal() || !sbClient) return;
+  try { await sbClient.from('user_lists').delete().eq('id', id); } catch (e) {}
+}
+
+/* ---------- reviews (Phase 3) ----------
+   Post a review to the shared backend for a real account (author = auth.uid()).
+   Demo personas keep reviewing locally only. */
+async function postReview(r) {
+  if (!authIsReal() || !sbClient) return false;
+  const u = getUser(S.currentUserId);
+  try {
+    const { error } = await sbClient.from('reviews').insert({
+      id: r.id, food_id: r.foodId, author: u.id,
+      author_name: u.name, author_handle: u.handle, author_avatar: u.avatar,
+      score: r.rating, body: r.text || '', photos: r.photos || [],
+    });
+    if (error) { console.warn('review post', error.message); return false; }
+    return true;
+  } catch (e) { console.warn('review post', e); return false; }
+}
+
+/* Admin moderation: hide/unhide any review (server enforces is_admin). */
+async function hideReview(id, hide) {
+  if (!sbClient) return false;
+  try {
+    const { error } = await sbClient.rpc('set_review_hidden', { p_id: id, p_hidden: !!hide });
+    return !error;
+  } catch (e) { return false; }
+}
+
+/* Pull recent community reviews for one food into S.reviews (dedup by id) so
+   the detail page shows what everyone said, not just this device. */
+async function loadReviewsForFood(foodId) {
+  const rows = await ListStore.reviewsForFood(foodId, 50);
+  if (!rows || !rows.length) return false;
+  let added = 0;
+  rows.forEach(row => {
+    if (S.reviews.some(x => x.id === row.id)) return;
+    S.reviews.push({
+      id: row.id, foodId: row.food_id, userId: row.author || ('remote_' + row.author_handle),
+      rating: row.score, text: row.body || '', photos: row.photos || [],
+      likes: [], comments: [], reported: false, removed: false,
+      ts: new Date(row.created_at).getTime(), vendorResponse: null,
+      remote: true, authorName: row.author_name, authorHandle: row.author_handle, authorAvatar: row.author_avatar,
+    });
+    added++;
+  });
+  if (added) { dataRev++; }
+  return added > 0;
 }

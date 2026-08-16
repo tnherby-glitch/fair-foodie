@@ -13,3 +13,22 @@ const BACKEND = {
      Options: 'google', 'apple'. Email magic-link is always available. */
   oauthProviders: [],
 };
+
+/* Demo mode surfaces the one-tap personas, the profile persona switcher, and
+   the seeded analytics numbers. It's OFF for production so real visitors only
+   see real sign-in. For a pitch or walkthrough, append ?demo=1 to any URL
+   (?demo=0 forces it off); the choice is remembered on that device. */
+const APP = { demo: false };
+function demoMode() {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.has('demo')) {
+      const on = q.get('demo') !== '0';
+      localStorage.setItem('ff_demo', on ? '1' : '0');
+      return on;
+    }
+    const saved = localStorage.getItem('ff_demo');
+    if (saved !== null) return saved === '1';
+  } catch (e) {}
+  return !!APP.demo;
+}

@@ -109,6 +109,35 @@ const ListStore = {
     } catch (e) { /* never block UX on stats */ }
   },
 
+  /* Live pup aggregate for every food that has reviews. Public read, so this
+     works signed-out. Returns { foodId: {avg, count} } merged into ratings. */
+  async foodScores() {
+    if (!this.configured()) return null;
+    try {
+      const r = await fetch(BACKEND.url + '/rest/v1/food_scores?select=food_id,n,avg', {
+        headers: this._headers(),
+      });
+      if (!r.ok) return null;
+      const rows = await r.json();
+      const map = Object.create(null);
+      rows.forEach(row => { map[row.food_id] = { avg: Number(row.avg) || 0, count: row.n || 0 }; });
+      return map;
+    } catch (e) { return null; }
+  },
+
+  /* Recent visible reviews for one food (all users). Public read. */
+  async reviewsForFood(foodId, limit) {
+    if (!this.configured()) return null;
+    try {
+      const cols = 'id,food_id,author,author_name,author_handle,author_avatar,score,body,photos,created_at';
+      const url = BACKEND.url + '/rest/v1/reviews?food_id=eq.' + encodeURIComponent(foodId) +
+        '&hidden=eq.false&select=' + cols + '&order=created_at.desc&limit=' + (limit || 50);
+      const r = await fetch(url, { headers: this._headers() });
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (e) { return null; }
+  },
+
   /* Creator-facing stats for a shared list. */
   async stats(slug) {
     if (!this.configured()) return null;

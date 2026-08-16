@@ -19,16 +19,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File serve.ps1 8787
 
 Best viewed at mobile width — it's designed as a phone app (installable-style UI, bottom tab bar).
 
-## Demo personas
+## Accounts & demo mode
 
-The onboarding screen lets you create a real profile **or** jump in as:
+In production the onboarding screen offers **real sign-in only** — email magic-link
+(and Google/Apple once configured). Signed-in accounts sync their profile, personal
+lists, and reviews to the backend so everything follows them across devices.
+
+**Demo mode** is off by default and adds one-tap personas plus a Profile persona
+switcher for walkthroughs and pitches. Turn it on by appending `?demo=1` to any URL
+(`?demo=0` turns it back off); the choice is remembered on that device. In demo mode
+you can jump in as:
 - 🌟 **Allison** — the headline influencer; her real 50-item ranked 2026 list is the pinned default for every user
 - 📝 **Ole's Eats** — food blogger (Blogger badge, long-form reviews)
 - 🎡 **Fair Admin** — administrator (moderation, sponsorship control, push notifications)
 
-(Maddy Munchies, Curd Nerd, and Sky Glider Sam are also switchable from Profile → Demo controls.)
-
-Switch personas anytime from **Profile → Demo controls**, and reset all demo data there too.
+Maddy Munchies, Curd Nerd, and Sky Glider Sam are also switchable from **Profile →
+Demo controls** (demo mode only), where you can reset demo data too.
 
 ## PRD coverage
 

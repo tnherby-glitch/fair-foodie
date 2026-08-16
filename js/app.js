@@ -75,6 +75,11 @@ async function bootApp() {
   } catch (e) {}
   if (!location.hash) location.hash = '#/home';
   render();
+  /* pull live community pup scores (public read) so rankings reflect real reviews */
+  if (typeof ListStore !== 'undefined' && ListStore.configured()) {
+    ListStore.foodScores().then(map => { if (map) { S.remoteScores = map; dataRev++; render(); } })
+      .catch(() => {});
+  }
   /* restore a real Supabase session if present (async); re-renders when ready */
   if (typeof authInit === 'function') {
     try { await authInit(); render(); } catch (e) { console.warn('auth init', e); }

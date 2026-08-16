@@ -35,6 +35,7 @@ function save() {
     USER_KEYS.forEach(k => { p[k] = S[k]; });
     store.setItem(DB_KEY, JSON.stringify(p));
   } catch (e) { console.warn('save failed', e); }
+  if (typeof onSaveSync === 'function') onSaveSync(); // push owned lists for real accounts
 }
 
 function buildCatalogState() {
@@ -104,7 +105,10 @@ function ratingsIndex() {
   if (_riRev === dataRev && _riCache) return _riCache;
   const m = Object.create(null);
   for (const r of S.reviews) {
-    if (r.removed) continue;
+    // Skip display-only copies of server reviews (r.remote) and this user's own
+    // reviews already counted in the live server aggregate (r.synced) — both are
+    // represented in S.remoteScores, so counting them here would double-count.
+    if (r.removed || r.remote || r.synced) continue;
     const e = m[r.foodId] || (m[r.foodId] = { sum: 0, n: 0 });
     e.sum += r.rating; e.n++;
   }
@@ -114,8 +118,10 @@ function ratingsIndex() {
 function foodRating(foodId) {
   const e = ratingsIndex()[foodId];
   const b = (S.baseRatings && S.baseRatings[foodId]) || null;
+  const rs = (S.remoteScores && S.remoteScores[foodId]) || null; // live community aggregate
   let sum = e ? e.sum : 0, n = e ? e.n : 0;
-  if (b) { sum += b.avg * b.count; n += b.count; }
+  if (b)  { sum += b.avg * b.count; n += b.count; }
+  if (rs) { sum += rs.avg * rs.count; n += rs.count; }
   return n ? { avg: sum / n, count: n } : { avg: 0, count: 0 };
 }
 /* Blue Ribbon is earned: 4.8+ with 100+ ratings. Never decorative. */

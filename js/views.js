@@ -59,6 +59,7 @@ function oauthButtons() {
     '<div class="muted" style="text-align:center;margin:6px 0 12px">— or with email —</div>';
 }
 function demoBlock() {
+  if (typeof demoMode === 'function' && !demoMode()) return ''; // hidden in production
   return '<div class="muted" style="margin:16px 0 6px">Just exploring? Jump in as a demo persona:</div>' +
     '<div class="chip-row" style="justify-content:center">' +
     '<button class="chip" onclick="obDemo(\'u_inf2\')">🌟 Allison (influencer)</button>' +
@@ -299,10 +300,17 @@ function searchResultsHtml() {
 }
 
 /* ================= FOOD DETAIL ================= */
+const _fetchedReviewFoods = Object.create(null);
 function viewFood(el, id) {
   const f = getFood(id);
   if (!f) { el.innerHTML = '<div class="empty">Food not found.</div>'; return; }
   const v = getVendor(f.vendorId);
+  /* pull community reviews for this food once, then re-render if any arrived */
+  if (!_fetchedReviewFoods[id] && typeof loadReviewsForFood === 'function' &&
+      typeof ListStore !== 'undefined' && ListStore.configured()) {
+    _fetchedReviewFoods[id] = true;
+    loadReviewsForFood(id).then(added => { if (added && location.hash.indexOf('/food/' + id) >= 0) render(); });
+  }
   const rs = foodReviews(id).slice().sort((a, b) => b.ts - a.ts);
   const u = me();
 
@@ -336,12 +344,15 @@ function viewFood(el, id) {
 }
 
 function reviewHtml(r) {
-  const ru = getUser(r.userId);
+  // remote community reviews carry denormalized author fields (no local profile)
+  const ru = getUser(r.userId) || { id: r.userId, name: r.authorName || 'A fair foodie', handle: r.authorHandle || 'fairgoer', avatar: r.authorAvatar || '🙂', verified: false, badges: [] };
+  const local = !!getUser(r.userId);
   const u = me();
   const liked = r.likes.includes(u.id);
+  const nameHtml = local ? '<a href="#/user/' + ru.id + '" style="color:inherit">' + userName(ru) + '</a>' : userName(ru);
   return '<div class="review">' +
     '<div class="review-head">' + avatarHtml(ru, 'av') +
-    '<div class="grow"><b><a href="#/user/' + ru.id + '" style="color:inherit">' + userName(ru) + '</a></b>' +
+    '<div class="grow"><b>' + nameHtml + '</b>' +
     '<div class="muted">' + timeAgo(r.ts) + '</div></div>' + pups(r.rating) + '</div>' +
     '<div style="font-size:14px">' + esc(r.text) + '</div>' +
     (r.photos.length ? '<div class="review-photos">' + r.photos.map(p => '<img src="' + p + '" alt="Review photo">').join('') + '</div>' : '') +
@@ -447,6 +458,21 @@ function submitReview(foodId) {
   const u = me();
   const r = { id: uid('r'), foodId, userId: u.id, rating: rateVal, text, photos: ratePhotos.slice(), likes: [], comments: [], reported: false, removed: false, ts: Date.now(), vendorResponse: null };
   S.reviews.push(r);
+  /* real accounts: post to the shared backend and fold into the live aggregate */
+  if (typeof postReview === 'function' && typeof authIsReal === 'function' && authIsReal()) {
+    postReview(r).then(ok => {
+      if (!ok) return;
+      r.synced = true;
+      if (S.remoteScores) {
+        const cur = S.remoteScores[foodId] || { avg: 0, count: 0 };
+        const n = cur.count + 1;
+        S.remoteScores[foodId] = { avg: (cur.avg * cur.count + rateVal) / n, count: n };
+      } else {
+        S.remoteScores = { [foodId]: { avg: rateVal, count: 1 } };
+      }
+      dataRev++; save(); render();
+    });
+  }
   u.qualityReviews++;
   /* PRD: Blogger badge after 25 quality reviews */
   if (u.qualityReviews >= 25 && !u.badges.includes('Blogger')) { u.badges.push('Blogger'); pushToast('🏅 Badge earned: Blogger!'); }
@@ -670,6 +696,7 @@ function saveListSettings(id) {
   save(); closeModal(); render();
 }
 function deleteList(id) {
+  if (typeof deleteUserList === 'function') deleteUserList(id); // remove server copy for real accounts
   S.lists = S.lists.filter(l => l.id !== id);
   save(); closeModal();
   location.hash = '#/lists';
