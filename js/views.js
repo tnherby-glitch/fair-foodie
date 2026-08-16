@@ -555,6 +555,73 @@ function toggleInList(listId, foodId) {
   openAddToList(foodId); // refresh modal
 }
 
+/* ---- Build-from-list: search the catalog and add foods to THIS list ---- */
+const addPickState = { listId: null, q: '' };
+function openAddFoodModal(listId) {
+  addPickState.listId = listId;
+  addPickState.q = '';
+  const l = getList(listId);
+  openModal('<h2>Add food to “' + esc(l.name) + '”</h2>' +
+    '<div class="searchbox" style="margin-bottom:10px">' +
+    '<input type="search" id="addPickInput" placeholder="Search ' + S.foods.length.toLocaleString() + ' foods or vendors" ' +
+    'aria-label="Search foods to add" autocomplete="off" oninput="addPickTyped(this.value)"></div>' +
+    '<div id="addPickResults">' + addPickResultsHtml() + '</div>' +
+    '<button class="btn block" style="margin-top:12px" onclick="closeModal();render()">Done</button>');
+}
+function addPickTyped(v) {
+  addPickState.q = v;
+  const box = document.getElementById('addPickResults');
+  if (box) box.innerHTML = addPickResultsHtml();
+}
+function addPickResultsHtml() {
+  const l = getList(addPickState.listId);
+  if (!l) return '';
+  const inList = id => l.foodIds.includes(id);
+  const q = addPickState.q.trim().toLowerCase();
+  let foods, heading;
+  if (!q) {
+    foods = l.foodIds.map(getFood).filter(Boolean);
+    if (!foods.length) return '<p class="muted" style="text-align:center;margin:18px 4px">Start typing to search — burgers, cheese curds, a vendor name…</p>';
+    heading = 'In this list (' + foods.length + ')';
+  } else {
+    // rank: name matches first (exact-ish, then partial), then vendor/category matches
+    const scored = [];
+    for (const f of S.foods) {
+      const name = f.name.toLowerCase();
+      const v = getVendor(f.vendorId);
+      let score = 0;
+      if (name === q) score = 4;
+      else if (name.startsWith(q)) score = 3;
+      else if (name.includes(q)) score = 2;
+      else if ((v && v.name.toLowerCase().includes(q)) || f.cats.some(c => c.toLowerCase().includes(q))) score = 1;
+      if (score) scored.push([score, f]);
+    }
+    scored.sort((a, b) => b[0] - a[0]);
+    heading = scored.length.toLocaleString() + ' match' + (scored.length === 1 ? '' : 'es') + (scored.length > 40 ? ' · showing 40' : '');
+    foods = scored.slice(0, 40).map(x => x[1]);
+  }
+  let h = '<div class="muted" style="margin:2px 2px 8px;font-size:12px">' + esc(heading) + '</div>';
+  if (!foods.length) h += '<p class="muted" style="text-align:center;margin:18px 4px">No foods match “' + esc(addPickState.q) + '”.</p>';
+  h += foods.map(f => {
+    const v = getVendor(f.vendorId);
+    const has = inList(f.id);
+    return '<button class="oauth-btn" style="justify-content:space-between;text-align:left" onclick="addPickToggle(\'' + f.id + '\')">' +
+      '<span class="grow" style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (f.emoji || '🍴') + ' ' + esc(f.name) + '</b>' +
+      '<span class="muted" style="font-size:12px">' + esc((v || {}).name || '') + '</span></span>' +
+      '<span class="pill ' + (has ? 'privacy' : '') + '" style="flex:none">' + (has ? '✓ Added' : '＋ Add') + '</span></button>';
+  }).join('');
+  return h;
+}
+function addPickToggle(foodId) {
+  const l = getList(addPickState.listId);
+  const i = l.foodIds.indexOf(foodId);
+  if (i >= 0) { l.foodIds.splice(i, 1); }
+  else { l.foodIds.push(foodId); }
+  save(); // persists + syncs owned list to the backend
+  const box = document.getElementById('addPickResults');
+  if (box) box.innerHTML = addPickResultsHtml();
+}
+
 function viewListDetail(el, id) {
   const l = getList(id);
   if (!l) { el.innerHTML = '<div class="empty">List not found.</div>'; return; }
@@ -575,7 +642,8 @@ function viewListDetail(el, id) {
     (listRating(l).count ? pupOne(true) + ' <b style="color:var(--ink)">' + listRating(l).avg.toFixed(1) + '</b> (' + listRating(l).count + ') · ' : '') +
     userName(owner) + ' · ' + foods.length + ' foods' + (total ? ' · est. $' + total.toFixed(2) : '') + ' · ' + l.views.toLocaleString() + ' views</div>' +
     '<div class="row" style="flex-wrap:wrap">' +
-    '<button class="btn small" onclick="location.hash=\'#/map?list=' + l.id + '\'">Map route</button>' +
+    (canEdit ? '<button class="btn small" onclick="openAddFoodModal(\'' + l.id + '\')">＋ Add food</button>' : '') +
+    '<button class="btn small ' + (canEdit ? 'secondary' : '') + '" onclick="location.hash=\'#/map?list=' + l.id + '\'">Map route</button>' +
     '<button class="btn small ghost ' + (liked ? 'on' : '') + '" aria-pressed="' + liked + '" onclick="likeList(\'' + l.id + '\')" style="' + (liked ? 'color:var(--accent);border-color:var(--accent)' : '') + '">♥ ' + l.likes.length + '</button>' +
     '<button class="btn small ghost" onclick="openShareModal(\'' + l.id + '\')">Share</button>' +
     '<button class="btn small ghost" onclick="duplicateList(\'' + l.id + '\')">Duplicate</button>' +
@@ -593,7 +661,10 @@ function viewListDetail(el, id) {
       ratingLine(f.id) + '</span>' +
       (canEdit ? '<button class="btn small ghost" aria-label="Remove ' + esc(f.name) + '" onclick="removeFromList(\'' + l.id + '\',\'' + f.id + '\')">✕</button>' : '') +
       '</div>').join('') :
-      '<div class="empty"><span class="big">🍽️</span>Empty list — <a href="#/search">go find some food!</a></div>') +
+      (canEdit ?
+        '<div class="empty"><span class="big">🍽️</span>This list is empty.<br>Add your first food to get started.' +
+        '<div style="margin-top:14px"><button class="btn" onclick="openAddFoodModal(\'' + l.id + '\')">＋ Add food</button></div></div>' :
+        '<div class="empty"><span class="big">🍽️</span>Nothing here yet.</div>')) +
 
     '<div class="section-title"><span>💬 Comments (' + l.comments.length + ')</span></div>' +
     '<div class="card">' +
