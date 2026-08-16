@@ -94,7 +94,6 @@ function viewHome(el) {
   // official new foods lead the carousel; cap it — the full set lives in search
   const fresh = S.foods.filter(f => f.official).concat(S.foods.filter(f => f.isNew && !f.official)).slice(0, 14);
   const trend = trendingFoods(6);
-  const ch = S.challenges[0];
 
   el.innerHTML =
     '<div class="greet">Hungry, ' + esc(u.name.split(' ')[0]) + '?</div>' +
@@ -106,9 +105,6 @@ function viewHome(el) {
     ['Deep Fried', 'On a Stick', 'Sweet', 'Savory', 'Drinks'].map(c =>
       '<button class="chip" onclick="location.hash=\'#/search?cat=' + c + '\'">' + c + '</button>').join('') +
     '</div>' +
-
-    '<div class="notice" role="note"><span aria-hidden="true">🏆</span><span class="grow"><b>Daily challenge</b><br><span class="muted">' + esc(ch.text.replace(/^Daily Challenge: /, '').replace(/ 🍟$/, '')) + '</span></span>' +
-    '<button class="btn small ghost" onclick="location.hash=\'#/search?cat=Deep Fried\'">Start</button></div>' +
 
     '<div class="section-title"><span>Featured lists</span><a class="see-all" href="#/lists">Show all</a></div>' +
     '<div class="hlist" role="list">' +
