@@ -86,7 +86,9 @@ const ListStore = {
     }
     if (!this.configured()) return null;
     try {
-      const r = await fetch(BACKEND.url + '/rest/v1/shared_lists?slug=eq.' + encodeURIComponent(slug) + '&select=*', {
+      // explicit columns — the owner_token column is not granted to the public key
+      const cols = 'slug,title,creator_handle,creator_name,food_ids';
+      const r = await fetch(BACKEND.url + '/rest/v1/shared_lists?slug=eq.' + encodeURIComponent(slug) + '&select=' + cols, {
         headers: this._headers(),
       });
       if (!r.ok) return null;
