@@ -6,7 +6,7 @@
 /* global CATALOG, localStorage */
 
 const DB_KEY = 'fairfoodie_user_v1';
-const DATA_VERSION = 9;
+const DATA_VERSION = 10;
 let S = null;      // global app state (user state + in-memory catalog)
 let dataRev = 0;   // bumped on every save so cached indexes can invalidate
 
@@ -246,29 +246,59 @@ function seedUserState() {
   const officialIds = CATALOG.foods.filter(f => f.official).map(f => f.id);
   const ids = arr => arr.filter(Boolean);
 
-  /* Allison's real 2026 list (from her fair spreadsheet, matched to the catalog).
-     Entries naming a stand rather than a dish resolve to that stand's signature item. */
+  /* Allison's real 2026 list — all 50 ranked picks from her fair spreadsheet,
+     in her order, matched to the official catalog by dish name + vendor. */
   const allison2026 = ids([
-    findVendorFoodId('Nitro Ice Cream'),
-    F('Strawberry Ube Sundae Tart'),
-    F('Breakfast Gnocchi', 'Blue Barn'),
-    F('Pickle dog'),
-    F('Chocolate Chip Cookies', 'Sweet Martha'),
-    F('Bacon On-A-Stick', 'Big Fat Bacon'),
-    F('Dole Soft Serve', 'Tasti Whip'),
-    F('Shave Ice', 'Minnesnowii'),
+    F('Super Stick', 'Spaghetti Eddie'),                 // 1
+    F('Chinese Sausage and Cheese Popper', 'Saturday Dumpling'),
+    F('Bao Belly', "RC's"),
+    F('Shakshuka Lamb Meatballs', 'French Meadow'),
+    F('Cherry Bigfoot Limeade Float', 'Tasti Whip'),     // 5
+    F('Hmong Corndog', 'Union Hmong'),
     F('Pickle Pizza', "Rick's"),
-    F('Pink Guava Slushie'),
-    F('Minneapple Pie'),
-    F('Milk', 'All You Can Drink Milk'),
-    F('Blue Cheese & Corn Fritz'),
-    F('Chicken in the Waffle'),
-    F('Iron Range Pierogies'),
+    F('Pork Schnitzel Sandwich', 'Farmers Union'),
+    F('Elote Tots', 'Tot Boss'),
+    F('Hot Honey Pizza Ballzz', 'Green Mill'),           // 10
+    F('Uncrustaburger', 'Coasters'),
+    F('Crack-n-Cheese', 'Jive Turkey'),
+    F('BBQ pulled pork mac savory waffle cone', 'Roon'), // "Dealer's Choice"
+    F('Apple Donut Ham Grinder', 'Farmers Union'),
+    F('Chocolate Strawberry Cup'),                       // 15
+    F('Walking Chopped Italian Grinder', 'Mancini'),
+    F('Honey Brisket Battered Potatoes', 'Australian'),
+    F('Battered Deep-Fried Cheese Curds', 'Mouth Trap'),
+    F('Bacon On-A-Stick', 'Big Fat Bacon'),
+    F('Frozen Cider Pop', 'Agriculture'),                // 20
+    F('Blue Moon Crunch', 'Minnesnowii'),
+    F('Hawaiian shaved ice', 'Hawaiian'),
     F('Sweet Corn On-The-Cob', 'Corn Roast'),
-    F('Jamaican jerk chicken wings', 'West Indies'),
-    F('Mini Donut Latte', 'Anchor'),
-    F('Brisket Cheese Curd Taco', 'Richie'),
-    F('Spicy Thai noodles', 'Oodles'),
+    F('MR. PEG', 'The Peg'),
+    F('Blueberry Basil Lemonade', 'Blue Barn'),          // 25
+    F('The Amish Doughnut', 'Peachey'),
+    F('Jamaican Jerk Chicken Loaded Fries', 'Irie'),
+    F('Birria Crunch Bomb', 'Taco Torro'),
+    F('Tanghulu', 'Iemochi'),
+    F('Apple Fries', 'Apple Fries'),                     // 30
+    F('Peri-Peri Bowl', 'Afro Deli'),
+    F('Garlic Cream Cheese Wontons', 'Que Viet'),
+    F('When Pigs Fly', 'Sausage Sister'),
+    F('Tacos de Mole', 'El Burrito'),
+    F('Chorizo Manchego Croquettes', 'Paella'),          // 35
+    F('Butter Brew Mustache Pretzel', 'Blue Moon'),
+    F('Longanisa Cheese Curd Lumpia', 'Lumpia City'),
+    F('French Chouxnut Sundae', 'Bridgeman'),
+    F('Sligo Slider Bites', "O'Gara"),
+    F("Athena's Whipped Feta", 'Dino'),                  // 40
+    F('Sweet Peach Lemonade Sparkler', 'Quench'),
+    F('Garlic Fries', 'Ball Park'),
+    findVendorFoodId('Nitro Ice Cream'),
+    F('Mango Sticky Rice Refresher', 'Chan'),
+    F('Brandy Old Fashioned Cookie Dough', 'Kora'),      // 45
+    F('Pickle Pie', 'LuLu'),
+    F('Milk', 'All You Can Drink Milk'),
+    F('Chocolate Chip Cookies', 'Sweet Martha'),
+    F('Dill with it', 'Urban Glow'),
+    F("Surf 'N' Turf Burger", 'Caribe'),                 // 50
   ]);
 
   const lists = [
