@@ -537,16 +537,7 @@ function viewListDetail(el, id) {
     (isOwner && u.role === 'influencer' && !l.featured && l.privacy === 'public' ? '<button class="btn small ghost" onclick="requestFeatured(\'' + l.id + '\')">★ Submit for featured</button>' : '') +
     '</div></div>' +
 
-    (!canEdit ?
-      '<div class="card row between">' +
-      '<span><b style="font-size:14px">Rate this list</b><br><span class="muted">' +
-      ((l.ratings || {})[u.id] ? 'You gave it ' + l.ratings[u.id] + ' Pronto Pup' + (l.ratings[u.id] > 1 ? 's' : '') + ' — tap to change' : 'Score the whole list, 1–5 Pronto Pups') +
-      '</span></span>' +
-      '<span class="pup-input" role="radiogroup" aria-label="Rate this list in Pronto Pups">' +
-      [1, 2, 3, 4, 5].map(i =>
-        '<button type="button" role="radio" aria-checked="' + ((l.ratings || {})[u.id] === i) + '" class="' + (i <= ((l.ratings || {})[u.id] || 0) ? 'on' : '') + '" style="font-size:22px" ' +
-        'aria-label="' + i + ' Pronto Pup' + (i > 1 ? 's' : '') + '" onclick="rateList(\'' + l.id + '\',' + i + ')">' + pupSvg() + '</button>').join('') +
-      '</span></div>' : '') +
+    (!canEdit ? ratePanelHtml(l, u) : '') +
 
     (foods.length ? foods.map(f =>
       '<div class="card food-card">' +
@@ -568,6 +559,20 @@ function viewListDetail(el, id) {
     '<button class="btn small" onclick="commentList(\'' + l.id + '\')">Post</button></div>' +
     '</div>';
 }
+/* Centered cream panel with large tap targets — the signature list-rating moment */
+function ratePanelHtml(l, u) {
+  const mine = (l.ratings || {})[u.id] || 0;
+  return '<div class="rate-panel">' +
+    '<div class="rate-panel-label">' + (mine ? 'You rated it ' + mine + ' pup' + (mine > 1 ? 's' : '') : 'Rate it in pups') + '</div>' +
+    '<div class="pup-input" role="radiogroup" aria-label="Rate this list, 1 to 5 pups">' +
+    [1, 2, 3, 4, 5].map(i =>
+      '<button type="button" role="radio" aria-checked="' + (mine === i) + '" class="' + (i <= mine ? 'on' : '') + '" ' +
+      'aria-label="' + i + ' pup' + (i > 1 ? 's' : '') + '" onclick="rateList(\'' + l.id + '\',' + i + ')">' + pupSvg() + '</button>').join('') +
+    '</div>' +
+    '<div class="rate-panel-hint">' + (mine ? 'Tap a pup to change your rating' : '1 = never again · 5 = must-have repeat') + '</div>' +
+    '</div>';
+}
+
 function rateList(id, n) {
   const l = getList(id); const u = me();
   if (l.ownerId === u.id || l.collaborators.includes(u.id)) { toast('You can\'t rate your own list'); return; }
