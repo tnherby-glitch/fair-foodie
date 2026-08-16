@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MN Fair Foodie Finder</title>
+<script>
+/* GitHub Pages SPA redirect: makes canonical path URLs work on a static host.
+   /fair-foodie/l/<slug>?ref=x  ->  /fair-foodie/?ref=x#/l/<slug>            */
+(function () {
+  var base = '/fair-foodie/';
+  var path = location.pathname;
+  var rest = path.indexOf(base) === 0 ? path.slice(base.length) : path.replace(/^\//, '');
+  location.replace(base + (location.search || '') + '#/' + rest.replace(/\/$/, ''));
+})();
+</script>
+</head>
+<body>Taking you to the fair…</body>
+</html>

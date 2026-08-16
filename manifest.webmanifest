@@ -1,0 +1,14 @@
+{
+  "name": "MN Fair Foodie Finder",
+  "short_name": "Foodie Finder",
+  "description": "Find, rate, and share the best food at the Minnesota State Fair.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FFF7EC",
+  "theme_color": "#E89C31",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

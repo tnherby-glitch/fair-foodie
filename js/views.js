@@ -75,6 +75,7 @@ function finishSignup(name, provider) {
   });
   save();
   toast('Welcome, ' + name + '! Signed in via ' + provider + ' 🎪');
+  if (resumePendingShare()) { render(); return; } // land on the list that brought them
   location.hash = '#/home';
   render();
 }
@@ -82,6 +83,7 @@ function obDemo(userId) {
   S.currentUserId = userId;
   save();
   toast('Signed in as ' + getUser(userId).name);
+  if (resumePendingShare()) { render(); return; }
   location.hash = '#/home';
   render();
 }
@@ -515,7 +517,7 @@ function viewListDetail(el, id) {
     '<div class="row" style="flex-wrap:wrap">' +
     '<button class="btn small" onclick="location.hash=\'#/map?list=' + l.id + '\'">Map route</button>' +
     '<button class="btn small ghost ' + (liked ? 'on' : '') + '" aria-pressed="' + liked + '" onclick="likeList(\'' + l.id + '\')" style="' + (liked ? 'color:var(--accent);border-color:var(--accent)' : '') + '">♥ ' + l.likes.length + '</button>' +
-    '<button class="btn small ghost" onclick="shareList(\'' + l.id + '\')">Share</button>' +
+    '<button class="btn small ghost" onclick="openShareModal(\'' + l.id + '\')">Share</button>' +
     '<button class="btn small ghost" onclick="duplicateList(\'' + l.id + '\')">Duplicate</button>' +
     (isOwner ? '<button class="btn small ghost" onclick="openListSettings(\'' + l.id + '\')">Settings</button>' : '') +
     (isOwner && u.role === 'influencer' && !l.featured && l.privacy === 'public' ? '<button class="btn small ghost" onclick="requestFeatured(\'' + l.id + '\')">★ Submit for featured</button>' : '') +
@@ -578,23 +580,8 @@ function likeList(id) {
   else { l.likes.push(u.id); notify(l.ownerId, u.name + ' liked your list "' + l.name + '" ❤️', '#/list/' + id); }
   save(); render();
 }
-function shareList(id) {
-  const l = getList(id);
-  const link = location.origin + location.pathname + '#/list/' + id;
-  const record = () => {
-    if (l.ownerId !== S.currentUserId) notify(l.ownerId, me().name + ' shared your list "' + l.name + '"', '#/list/' + id);
-    logActivity(S.currentUserId, 'shared list "' + l.name + '"', '#/list/' + id);
-    save();
-  };
-  if (navigator.share) {
-    // native share sheet: text message, WhatsApp, email, socials…
-    navigator.share({ title: l.name, text: 'Rate my fair food list "' + l.name + '" on Fair Foodie:', url: link })
-      .then(record).catch(() => {});
-  } else {
-    const done = () => { toast('Link copied — paste it into a text or post'); record(); };
-    if (navigator.clipboard) navigator.clipboard.writeText(link).then(done, done); else done();
-  }
-}
+/* legacy entry point — the full share flow lives in js/share.js */
+function shareList(id) { openShareModal(id); }
 function duplicateList(id) {
   const src = getList(id); const u = me();
   const copy = { id: uid('l'), name: src.name + ' (copy)', ownerId: u.id, foodIds: src.foodIds.slice(), privacy: 'private', featured: false, likes: [], ratings: {}, views: 0, comments: [], collaborators: [], ts: Date.now() };

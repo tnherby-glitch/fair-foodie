@@ -20,6 +20,14 @@ function render() {
   const tabbar = document.getElementById('tabbar');
   const topActions = document.querySelector('.topbar-actions');
 
+  /* Shared lists are public: fully viewable with zero login (docs/SHARING.md) */
+  if (page === 'l') {
+    tabbar.style.display = S.currentUserId ? 'flex' : 'none';
+    topActions.style.visibility = S.currentUserId ? 'visible' : 'hidden';
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'lists'));
+    viewSharedList(el, arg);
+    return;
+  }
   if (!S.currentUserId) {
     tabbar.style.display = 'none';
     topActions.style.visibility = 'hidden';
@@ -60,6 +68,11 @@ function render() {
 window.addEventListener('hashchange', render);
 function bootApp() {
   loadState();
+  /* capture share attribution (?ref=&ch=) for the deferred-deep-link moment */
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get('ref')) sessionStorage.setItem('ff_ref', JSON.stringify({ ref: q.get('ref'), ch: q.get('ch') || '' }));
+  } catch (e) {}
   if (!location.hash) location.hash = '#/home';
   render();
 }
