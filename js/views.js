@@ -179,7 +179,7 @@ function searchTyped(v) {
     if (foods.length || vendors.length) {
       box.innerHTML = '<div class="autocomplete" role="listbox" aria-label="Suggestions">' +
         foods.map(f => '<button role="option" onclick="location.hash=\'#/food/' + f.id + '\'">' + f.emoji + ' ' + esc(f.name) + '</button>').join('') +
-        vendors.map(x => '<button role="option" onclick="location.hash=\'#/map?vendor=' + x.id + '\'">📍 ' + esc(x.name) + ' <span class="muted">(vendor)</span></button>').join('') +
+        vendors.map(x => '<button role="option" onclick="location.hash=\'#/vendor/' + x.id + '\'">📍 ' + esc(x.name) + ' <span class="muted">(stand)</span></button>').join('') +
         '</div>';
     } else box.innerHTML = '';
   } else box.innerHTML = '';
@@ -276,7 +276,7 @@ function viewFood(el, id) {
     '<div class="detail-head">' +
     '<h1>' + esc(f.name) + '</h1>' +
     '<div class="detail-meta">' + ratingLine(f.id) + ' · On ' + listCountForFood(f.id) + ' lists</div>' +
-    '<div class="detail-meta"><b>' + esc(v.name) + '</b>' + (f.price ? ' · $' + f.price.toFixed(2).replace(/\.00$/, '') : '') + (v.hours ? ' · ' + esc(v.hours) : '') + '</div>' +
+    '<div class="detail-meta"><a href="#/vendor/' + v.id + '" style="font-weight:700;text-decoration:underline;text-underline-offset:3px;color:var(--ink)">' + esc(v.name) + '</a>' + (f.price ? ' · $' + f.price.toFixed(2).replace(/\.00$/, '') : '') + (v.hours ? ' · ' + esc(v.hours) : '') + '</div>' +
     (v.loc ? '<div class="detail-meta">' + esc(v.loc) + '</div>' : '') +
     '</div>' +
     '<div class="action-row">' +

@@ -286,24 +286,27 @@ function mapPick(vid) {
   mapState.vendorSel = mapState.vendorSel === vid ? '' : vid;
   render();
 }
-function vendorCardHtml(v, routeIdx) {
+function vendorCardHtml(v, routeIdx, opts) {
+  opts = opts || {};
   /* menu sorted by community pup score — top-rated first, unrated last */
   const menu = S.foods.filter(f => f.vendorId === v.id);
   menu.sort((a, b) => {
     const ra = foodRating(a.id), rb = foodRating(b.id);
     return (rb.avg - ra.avg) || (rb.count - ra.count);
   });
-  const shown = menu.slice(0, 10);
+  const shown = opts.full ? menu : menu.slice(0, 10);
   const anyRated = menu.some(f => foodRating(f.id).count);
   const walk = walkMinFromGate(v);
   return '<div class="card">' +
     (v.photo ? '<div class="photo" style="background-image:url(' + v.photo + ');margin-bottom:12px"></div>' : '') +
-    '<div class="row between"><h2 style="font-size:16px;margin:0;font-weight:600">' + esc(v.name) + '</h2>' +
+    '<div class="row between"><h2 style="font-size:16px;margin:0;font-weight:600">' +
+    (opts.full ? esc(v.name) : '<a href="#/vendor/' + v.id + '" style="text-decoration:underline;text-underline-offset:3px">' + esc(v.name) + '</a>') + '</h2>' +
     (routeIdx >= 0 ? '<span class="pill new">Stop ' + (routeIdx + 1) + '</span>' : '') + '</div>' +
     '<div class="muted" style="margin:4px 0">' + esc(v.loc || '') + (v.hours ? ' · ' + esc(v.hours) : '') + '</div>' +
     (v.specials ? '<div class="vendor-reply">Today: ' + esc(v.specials) + '</div>' : '') +
-    (v.offers ? '<div class="vendor-reply">Deals: ' + esc(v.offers.length > 140 ? v.offers.slice(0, 137) + '…' : v.offers) + '</div>' : '') +
+    (v.offers ? '<div class="vendor-reply">Deals: ' + esc(v.offers.length > 140 && !opts.full ? v.offers.slice(0, 137) + '…' : v.offers) + '</div>' : '') +
     '<div class="muted" style="margin:8px 0 4px">Est. wait <b>' + waitEstimate(v) + ' min</b>' + (walk ? ' · <b>' + walk + ' min</b> walk from Main Gate' : '') + '</div>' +
+    (opts.full ? '<div class="action-row" style="margin:10px 0 12px"><button class="btn small" onclick="location.hash=\'#/map?vendor=' + v.id + '\'">Show on map</button></div>' : '') +
     (anyRated ? '<div class="muted" style="margin:6px 0 2px;font-size:11.5px;letter-spacing:.04em;font-weight:700;text-transform:uppercase">Menu · top rated first</div>' : '') +
     shown.map(f => {
       const r = foodRating(f.id);
@@ -316,8 +319,17 @@ function vendorCardHtml(v, routeIdx) {
         (r.count ? '<span style="flex-shrink:0">' + ratingCompact(f.id) + '</span>' : '') +
         '</a>';
     }).join('') +
-    (menu.length > shown.length ? '<div class="muted" style="padding:8px 0 0;border-top:1px solid var(--line)">+ ' + (menu.length - shown.length) + ' more items — search "' + esc(v.name) + '" to see all</div>' : '') +
+    (menu.length > shown.length ? '<a class="muted" style="display:block;padding:8px 0 0;border-top:1px solid var(--line);text-decoration:underline;text-underline-offset:3px" href="#/vendor/' + v.id + '">See all ' + menu.length + ' items</a>' : '') +
     '</div>';
+}
+
+/* dedicated vendor page — one tap from any food detail */
+function viewVendorPage(el, id) {
+  const v = getVendor(id);
+  if (!v) { el.innerHTML = '<div class="empty">Stand not found.</div>'; return; }
+  el.innerHTML =
+    '<h1 class="greet" style="margin:4px 0 14px">' + esc(v.name) + '</h1>' +
+    vendorCardHtml(v, -1, { full: true });
 }
 function waitEstimate(v) {
   // deterministic pseudo-wait based on popularity
