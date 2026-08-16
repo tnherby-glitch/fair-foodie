@@ -397,7 +397,6 @@ function viewProfile(el) {
     '<div class="row" style="justify-content:center;flex-wrap:wrap">' +
     '<button class="btn small secondary" onclick="openEditProfile()">Edit profile</button>' +
     '<button class="btn small ghost" onclick="location.hash=\'#/feed\'">Community feed</button>' +
-    (u.role === 'vendor' ? '<button class="btn small" onclick="location.hash=\'#/vendor\'">🏪 Vendor dashboard</button>' : '') +
     (u.role === 'admin' ? '<button class="btn small" onclick="location.hash=\'#/admin\'">🛡️ Admin console</button>' : '') +
     (u.role === 'influencer' ? '<button class="btn small yellow" onclick="openInfluencerStats()">📊 My analytics</button>' : '') +
     '</div></div>' +
@@ -505,83 +504,7 @@ function viewUser(el, id) {
       '<div class="empty">No reviews yet.</div>');
 }
 
-/* ================= VENDOR DASHBOARD ================= */
-function viewVendorDash(el) {
-  const u = me();
-  const myVendors = S.vendors.filter(v => v.ownerUserId === u.id);
-  if (!myVendors.length) {
-    const unclaimed = S.vendors.filter(v => !v.ownerUserId);
-    el.innerHTML = '<h1 style="font-size:21px;font-weight:700;margin:4px 0 14px">Claim your booth</h1>' +
-      '<div class="card"><p style="font-size:14px">Are you a fair vendor? Claim your business profile — a fair administrator will verify your request.</p>' +
-      '<label class="field">Your booth<select id="claimVendor">' + unclaimed.map(v => '<option value="' + v.id + '">' + esc(v.name) + '</option>').join('') + '</select></label>' +
-      '<label class="field">Business license # / note<input type="text" id="claimNote" placeholder="e.g. MN-1234"></label>' +
-      '<button class="btn block" onclick="submitClaim()">Submit claim for verification</button></div>';
-    return;
-  }
-  const v = myVendors[0];
-  const menu = S.foods.filter(f => f.vendorId === v.id);
-  const menuReviews = S.reviews.filter(r => !r.removed && menu.some(f => f.id === r.foodId));
-  const unanswered = menuReviews.filter(r => !r.vendorResponse);
-  const peak = [15, 30, 55, 80, 100, 85, 60, 35];
-  const peakLabels = ['9a', '11a', '1p', '3p', '5p', '7p', '9p', '11p'];
-
-  el.innerHTML =
-    '<h1 style="font-size:21px;font-weight:700;margin:4px 0 14px">' + esc(v.name) + (v.verified ? ' <span class="vbadge" style="font-size:13px">✔ Verified</span>' : ' <span class="pill">verification pending</span>') + '</h1>' +
-
-    '<div class="card"><h3 style="margin:0 0 8px;font-size:15px">Booth info</h3>' +
-    '<label class="field">Operating hours<input type="text" id="vdHours" value="' + esc(v.hours) + '"></label>' +
-    '<label class="field">Today\'s special <span class="muted">(shown on your foods)</span><input type="text" id="vdSpecial" value="' + esc(v.specials) + '" placeholder="e.g. 2-for-1 after 8pm"></label>' +
-    '<button class="btn small" onclick="saveVendorInfo(\'' + v.id + '\')">Save booth info</button></div>' +
-
-    '<div class="section-title"><span>Menu (' + menu.length + ')</span></div>' +
-    menu.map(f => {
-      const r = foodRating(f.id);
-      return '<div class="card">' +
-        '<div class="row between"><b>' + f.emoji + ' ' + esc(f.name) + '</b>' + (f.price ? '<span class="muted">$' + f.price.toFixed(2) + '</span>' : '') + '</div>' +
-        '<div class="muted" style="margin:4px 0">' + (r.count ? r.avg.toFixed(1) + ' Pup avg · ' + r.count + ' reviews' : 'No reviews yet') + ' · on ' + listCountForFood(f.id) + ' lists</div>' +
-        '<div class="row" style="flex-wrap:wrap">' +
-        '<button class="btn small ' + (f.soldOut ? 'secondary' : 'ghost') + '" aria-pressed="' + f.soldOut + '" onclick="toggleSoldOut(\'' + f.id + '\')">' + (f.soldOut ? 'Sold out — tap to restock' : 'Mark sold out') + '</button>' +
-        '<button class="btn small ghost" onclick="openEditFood(\'' + f.id + '\')">Edit item</button>' +
-        '<button class="btn small ghost" onclick="openHeroModal(\'' + f.id + '\')">' + (f.heroImg ? 'Change photo' : 'Add photo') + '</button>' +
-        '</div></div>';
-    }).join('') +
-
-    '<div class="section-title"><span>📊 Booth analytics</span></div>' +
-    '<div class="card"><h3 style="margin:0;font-size:14px">Peak interest by hour</h3>' +
-    '<div class="bars" role="img" aria-label="Peak interest by hour, busiest at 5pm">' +
-    peak.map((p, i) => '<div class="bar" style="height:' + p + '%"><em>' + p + '</em><span>' + peakLabels[i] + '</span></div>').join('') +
-    '</div><div style="height:22px"></div>' +
-    '<div class="muted">Total reviews: <b>' + menuReviews.length + '</b> · List adds: <b>' + menu.reduce((a, f) => a + listCountForFood(f.id), 0) + '</b></div></div>' +
-
-    '<div class="section-title"><span>💬 Reviews needing a response (' + unanswered.length + ')</span></div>' +
-    (unanswered.length ? '<div class="card">' + unanswered.map(r =>
-      '<div class="review"><div class="row between"><b>' + esc(getFood(r.foodId).name) + '</b>' + pups(r.rating) + '</div>' +
-      '<div style="font-size:13.5px;margin:4px 0">' + esc(r.text) + '</div>' +
-      '<button class="btn small secondary" onclick="openVendorReply(\'' + r.id + '\')">↩️ Respond</button></div>').join('') + '</div>' :
-      '<div class="empty">All caught up! 🎉</div>');
-}
-function submitClaim() {
-  const vid = document.getElementById('claimVendor').value;
-  S.vendorRequests.push({ id: uid('vr'), vendorId: vid, requesterName: me().name, requesterUserId: S.currentUserId, email: '', note: document.getElementById('claimNote').value, status: 'pending', ts: Date.now() });
-  save();
-  toast('Claim submitted — an admin will verify it. ✅');
-  location.hash = '#/home';
-}
-function saveVendorInfo(vid) {
-  const v = getVendor(vid);
-  overrideVendor(vid, {
-    hours: document.getElementById('vdHours').value.trim() || v.hours,
-    specials: document.getElementById('vdSpecial').value.trim(),
-  });
-  toast('Booth info updated');
-}
-function toggleSoldOut(fid) {
-  const f = getFood(fid);
-  overrideFood(fid, { soldOut: !f.soldOut });
-  render();
-  toast(f.soldOut ? f.name + ' marked sold out for today' : f.name + ' is back!');
-}
-/* ---- official (hero) photo: set by owning vendor or admin ---- */
+/* ---- official (hero) photo: admin-curated ---- */
 let heroTemp = null;
 function openHeroModal(fid) {
   const f = getFood(fid);
@@ -617,35 +540,13 @@ function removeHero(fid) {
   toast('Official photo removed');
 }
 
-function openEditFood(fid) {
-  const f = getFood(fid);
-  openModal('<h2>✏️ Edit menu item</h2>' +
-    '<label class="field">Name<input type="text" id="efName" value="' + esc(f.name) + '"></label>' +
-    '<label class="field">Price ($)<input type="number" id="efPrice" step="0.5" min="0" value="' + (f.price != null ? f.price : '') + '"></label>' +
-    '<label class="field">Description<textarea id="efDesc">' + esc(f.desc) + '</textarea></label>' +
-    '<label class="field">Dietary info <span class="muted">(comma separated: vegetarian, vegan, gluten-free, dairy-free)</span>' +
-    '<input type="text" id="efDiet" value="' + f.dietary.join(', ') + '"></label>' +
-    '<button class="btn block" onclick="saveFood(\'' + fid + '\')">Save item</button>');
-}
-function saveFood(fid) {
-  const f = getFood(fid);
-  const priceRaw = parseFloat(document.getElementById('efPrice').value);
-  overrideFood(fid, {
-    name: document.getElementById('efName').value.trim() || f.name,
-    price: isNaN(priceRaw) ? f.price : priceRaw,
-    desc: document.getElementById('efDesc').value.trim(),
-    dietary: document.getElementById('efDiet').value.split(',').map(s => s.trim()).filter(Boolean),
-  });
-  closeModal(); render();
-  toast('Menu item updated');
-}
 
 /* ================= ADMIN CONSOLE ================= */
 let adminTab = 'moderation';
 function viewAdmin(el) {
   const u = me();
   if (u.role !== 'admin') { el.innerHTML = '<div class="empty"><span class="big">🚫</span>Admins only.</div>'; return; }
-  const tabs = [['moderation', '🚩 Reports'], ['users', '👥 Users'], ['vendors', '🏪 Vendors'], ['featured', '⭐ Featured'], ['analytics', '📈 Analytics'], ['push', '📣 Push']];
+  const tabs = [['moderation', '🚩 Reports'], ['users', '👥 Users'], ['featured', '⭐ Featured'], ['analytics', '📈 Analytics'], ['push', '📣 Push']];
   el.innerHTML =
     '<h1 style="font-size:21px;font-weight:700;margin:4px 0 14px">Admin console</h1>' +
     '<div class="chip-row">' + tabs.map(t =>
@@ -678,19 +579,16 @@ function adminBodyHtml() {
         '<button class="btn small ghost" onclick="adminToggleVerify(\'' + x.id + '\')">' + (x.verified ? 'Unverify' : 'Verify') + '</button></td></tr>').join('') +
       '</table></div>';
   }
-  if (adminTab === 'vendors') {
-    const pending = S.vendorRequests.filter(r => r.status === 'pending');
-    return pending.length ? pending.map(r =>
-      '<div class="card"><b>' + (r.isFeatureRequest ? '⭐ Featured list request' : '🏪 Vendor claim: ' + esc(getVendor(r.vendorId).name)) + '</b>' +
-      '<div class="muted">' + esc(r.requesterName) + (r.email ? ' · ' + esc(r.email) : '') + ' · ' + timeAgo(r.ts) + '</div>' +
-      '<div style="font-size:13.5px;margin:4px 0">' + esc(r.note) + '</div>' +
-      '<div class="row"><button class="btn small" onclick="adminApprove(\'' + r.id + '\')">Approve</button>' +
-      '<button class="btn small ghost" onclick="adminDeny(\'' + r.id + '\')">Deny</button></div></div>').join('') :
-      '<div class="empty"><span class="big">✅</span>No pending vendor requests.</div>';
-  }
   if (adminTab === 'featured') {
     const pub = S.lists.filter(l => l.privacy === 'public');
+    const pending = S.vendorRequests.filter(r => r.status === 'pending' && r.isFeatureRequest);
     return '<p class="muted" style="margin:2px 2px 12px">Featured lists appear as Sponsored placements above organic results. The <b>default</b> list is pinned first for every user.</p>' +
+      pending.map(r =>
+        '<div class="card" style="border-color:var(--gold)"><b>⭐ Featured request</b>' +
+        '<div class="muted">' + esc(r.requesterName) + ' · ' + timeAgo(r.ts) + '</div>' +
+        '<div style="font-size:13.5px;margin:4px 0">' + esc(r.note) + '</div>' +
+        '<div class="row"><button class="btn small" onclick="adminApprove(\'' + r.id + '\')">Approve</button>' +
+        '<button class="btn small ghost" onclick="adminDeny(\'' + r.id + '\')">Deny</button></div></div>').join('') +
       pub.map(l => '<div class="card"><div class="row between"><span><b>' + esc(l.name) + '</b>' + (l.id === S.defaultListId ? ' <span class="pill new">Default</span>' : '') +
         '<div class="muted">' + esc(getUser(l.ownerId).name) + ' · ' + l.views.toLocaleString() + ' views · ' + l.likes.length + ' likes</div></span></div>' +
         '<div class="row" style="margin-top:8px">' +
@@ -714,7 +612,7 @@ function adminBodyHtml() {
   }
   if (adminTab === 'push') {
     return '<div class="card"><h3 style="margin:0 0 8px;font-size:14px">Send push notification</h3>' +
-      '<label class="field">Audience<select id="pushSeg"><option value="all">All users</option><option value="attendee">Attendees</option><option value="vendor">Vendors</option><option value="influencer">Influencers</option></select></label>' +
+      '<label class="field">Audience<select id="pushSeg"><option value="all">All users</option><option value="attendee">Attendees</option><option value="influencer">Influencers</option></select></label>' +
       '<label class="field">Message<textarea id="pushMsg" maxlength="180" placeholder="e.g. Severe weather: seek shelter in the Coliseum."></textarea></label>' +
       '<button class="btn block" onclick="adminPush()">📣 Send now</button></div>' +
       (S.pushLog.length ? '<div class="section-title"><span>Sent</span></div>' + S.pushLog.map(p =>
@@ -758,22 +656,14 @@ function adminToggleVerify(uidX) {
 function adminApprove(reqId) {
   const r = S.vendorRequests.find(x => x.id === reqId);
   r.status = 'approved';
-  if (r.isFeatureRequest) {
-    const l = getList(r.featuredListId);
-    if (l) { l.featured = true; notify(l.ownerId, '⭐ Your list "' + l.name + '" is now Featured!', '#/list/' + l.id); }
-  } else {
-    const v = getVendor(r.vendorId);
-    const patch = { verified: true };
-    if (r.requesterUserId) { patch.ownerUserId = r.requesterUserId; notify(r.requesterUserId, '✅ Your claim for ' + v.name + ' was approved!', '#/vendor'); }
-    overrideVendor(r.vendorId, patch);
-  }
+  const l = getList(r.featuredListId);
+  if (l) { l.featured = true; notify(l.ownerId, '⭐ Your list "' + l.name + '" is now Featured!', '#/list/' + l.id); }
   save(); render();
   toast('Approved ✅');
 }
 function adminDeny(reqId) {
   const r = S.vendorRequests.find(x => x.id === reqId);
   r.status = 'denied';
-  if (r.requesterUserId) notify(r.requesterUserId, 'Your vendor claim was denied. Contact fair admin for details.', '');
   save(); render();
   toast('Denied');
 }

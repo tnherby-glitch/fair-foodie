@@ -6,7 +6,7 @@
 /* global CATALOG, localStorage */
 
 const DB_KEY = 'fairfoodie_user_v1';
-const DATA_VERSION = 11;
+const DATA_VERSION = 12;
 let S = null;      // global app state (user state + in-memory catalog)
 let dataRev = 0;   // bumped on every save so cached indexes can invalidate
 
@@ -203,8 +203,6 @@ function seedUserState() {
     { id: 'u_blog1', name: "Ole's Eats",        handle: 'oleseats',     avatar: '📝', role: 'blogger',    verified: false, bio: 'Twin Cities food blog. 12 fairs and counting. Uff da.', followers: ['u_inf1'], following: ['u_inf1', 'u_reg1'], badges: ['Blogger'], banned: false, warned: 0, qualityReviews: 27 },
     { id: 'u_reg1',  name: 'Curd Nerd',         handle: 'curdnerd',     avatar: '🧀', role: 'attendee',   verified: false, bio: 'Squeak connoisseur.', followers: ['u_blog1'], following: ['u_inf1'], badges: [], banned: false, warned: 0, qualityReviews: 8 },
     { id: 'u_reg2',  name: 'Sky Glider Sam',    handle: 'skygliders',   avatar: '🚡', role: 'attendee',   verified: false, bio: 'I judge the fair from above.', followers: [], following: ['u_inf1'], badges: [], banned: false, warned: 0, qualityReviews: 3 },
-    { id: 'u_vend1', name: 'Pronto Pup Crew',   handle: 'prontopupmn',  avatar: '🎪', role: 'vendor',     verified: true,  bio: 'Official Pronto Pup vendor account.', followers: [], following: [], badges: [], banned: false, warned: 0, qualityReviews: 0 },
-    { id: 'u_vend2', name: 'Mouth Trap Team',   handle: 'mouthtrap',    avatar: '🧀', role: 'vendor',     verified: true,  bio: 'Food Building, since 1978.', followers: [], following: [], badges: [], banned: false, warned: 0, qualityReviews: 0 },
   ];
 
   /* resolve real catalog ids for seeded content */
@@ -229,15 +227,11 @@ function seedUserState() {
   const idRoastCorn   = F('roasted corn') || F('corn roast') || F('sweet corn');
   const idChocChip    = F('chocolate chip cookies', 'Sweet Martha') || idCookies;
 
-  const vProntoPup = V('Pronto Pup');
-  const vMouthTrap = V('Mouth Trap');
-
+  /* No vendor accounts this year — stands are catalog data only. */
   const vendorOverrides = {};
-  if (vProntoPup) vendorOverrides[vProntoPup] = { ownerUserId: 'u_vend1', verified: true, specials: 'Buy 4, get a free lemonade!' };
-  if (vMouthTrap) vendorOverrides[vMouthTrap] = { ownerUserId: 'u_vend2', verified: true };
 
   const reviews = [
-    { id: 'r1',  foodId: idCurds,      userId: 'u_reg1',  rating: 5, text: 'The squeak is REAL. Molten cheese, perfect batter, zero regrets. I waited 20 minutes and would wait 40.', photos: [], likes: ['u_inf1', 'u_blog1'], comments: [{ id: 'c1', userId: 'u_inf1', text: 'The Food Building line is a rite of passage!', ts: now - 2 * D }], reported: false, removed: false, ts: now - 3 * D, vendorResponse: 'Thanks for braving the line — squeak on!' },
+    { id: 'r1',  foodId: idCurds,      userId: 'u_reg1',  rating: 5, text: 'The squeak is REAL. Molten cheese, perfect batter, zero regrets. I waited 20 minutes and would wait 40.', photos: [], likes: ['u_inf1', 'u_blog1'], comments: [{ id: 'c1', userId: 'u_inf1', text: 'The Food Building line is a rite of passage!', ts: now - 2 * D }], reported: false, removed: false, ts: now - 3 * D, vendorResponse: null },
     { id: 'r2',  foodId: idProntoPup,  userId: 'u_inf1',  rating: 5, text: 'The original. The icon. The reason this app rates things in Pronto Pups. Crispy batter, snappy dog — five out of five of itself.', photos: [], likes: ['u_reg1', 'u_reg2'], comments: [], reported: false, removed: false, ts: now - 2.5 * D, vendorResponse: null },
     { id: 'r3',  foodId: idPicklePie,  userId: 'u_inf1',  rating: 4, text: 'Pickle Pie is the unhinged icon 2026 deserves. Cream cheese and chopped pickle in a crust, ranch-Cholula frosting on top — it walks the line between genius and war crime and lands on genius.', photos: [], likes: ['u_blog1'], comments: [{ id: 'c2', userId: 'u_reg2', text: 'You have convinced me. Adding to my list.', ts: now - 1 * D }], reported: false, removed: false, ts: now - 1.2 * D, vendorResponse: null },
     { id: 'r4',  foodId: idChocChip,   userId: 'u_reg2',  rating: 4, text: 'Bucket of warm cookies is a top-3 fair experience. Docked one Pup because I ate too many and had to sit down for a while.', photos: [], likes: [], comments: [], reported: false, removed: false, ts: now - 2 * D, vendorResponse: null },

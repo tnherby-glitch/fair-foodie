@@ -1,5 +1,5 @@
 /* Router + bootstrap */
-/* global S, loadState, save, me, esc, updateBell, updateAvatarBtn, viewOnboarding, viewHome, viewSearch, viewFood, viewLists, viewListDetail, viewMap, viewFeed, viewNotifications, viewProfile, viewUser, viewVendorDash, viewAdmin */
+/* global S, loadState, save, me, esc, updateBell, updateAvatarBtn, viewOnboarding, viewHome, viewSearch, viewFood, viewLists, viewListDetail, viewMap, viewFeed, viewNotifications, viewProfile, viewUser, viewAdmin */
 
 function parseHash() {
   const raw = (location.hash || '#/home').slice(1); // e.g. /food/f1?x=1
@@ -35,7 +35,7 @@ function render() {
   topActions.style.visibility = 'visible';
 
   // active tab highlight (4-tab IA: Explore, Map, My Lists, Profile)
-  const tabFor = { home: 'explore', search: 'explore', food: 'explore', map: 'map', lists: 'lists', list: 'lists', feed: 'profile', user: 'profile', notifications: 'profile', profile: 'profile', vendor: 'profile', admin: 'profile' };
+  const tabFor = { home: 'explore', search: 'explore', food: 'explore', map: 'map', lists: 'lists', list: 'lists', feed: 'profile', user: 'profile', notifications: 'profile', profile: 'profile', admin: 'profile' };
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === (tabFor[page] || '')));
 
   switch (page) {
@@ -49,7 +49,6 @@ function render() {
     case 'notifications': viewNotifications(el); break;
     case 'profile':       viewProfile(el); break;
     case 'user':          viewUser(el, arg); break;
-    case 'vendor':        viewVendorDash(el); break;
     case 'admin':         viewAdmin(el); break;
     default:              viewHome(el);
   }

@@ -42,7 +42,6 @@ function viewOnboarding(el) {
     '<div class="chip-row" style="justify-content:center">' +
     '<button class="chip" onclick="obDemo(\'u_inf2\')">🌟 Allison (influencer)</button>' +
     '<button class="chip" onclick="obDemo(\'u_blog1\')">📝 Blogger</button>' +
-    '<button class="chip" onclick="obDemo(\'u_vend1\')">🏪 Vendor</button>' +
     '<button class="chip" onclick="obDemo(\'u_admin\')">🎡 Admin</button>' +
     '</div></div>';
 }
@@ -265,7 +264,6 @@ function viewFood(el, id) {
   const v = getVendor(f.vendorId);
   const rs = foodReviews(id).slice().sort((a, b) => b.ts - a.ts);
   const u = me();
-  const myVendor = u.role === 'vendor' && v && v.ownerUserId === u.id;
 
   const allPhotos = rs.reduce((a, r) => a.concat(r.photos), []);
   el.innerHTML =
@@ -280,7 +278,7 @@ function viewFood(el, id) {
     '<button class="btn" onclick="openRateModal(\'' + f.id + '\')">Rate & review</button>' +
     '<button class="btn secondary" onclick="openAddToList(\'' + f.id + '\')">Add to my list</button>' +
     '<button class="btn ghost" onclick="location.hash=\'#/map?vendor=' + v.id + '\'">Find booth</button>' +
-    (myVendor || u.role === 'admin' ? '<button class="btn ghost" onclick="openHeroModal(\'' + f.id + '\')">Official photo</button>' : '') +
+    (u.role === 'admin' ? '<button class="btn ghost" onclick="openHeroModal(\'' + f.id + '\')">Official photo</button>' : '') +
     '</div>' +
     (v.specials ? '<div class="notice"><span aria-hidden="true">🎉</span><span><b>Today:</b> ' + esc(v.specials) + '</span></div>' : '') +
     (v.offers ? '<div class="notice"><span aria-hidden="true">🎟️</span><span><b>Deals:</b> ' + esc(v.offers.length > 160 ? v.offers.slice(0, 157) + '…' : v.offers) + '</span></div>' : '') +
@@ -291,11 +289,11 @@ function viewFood(el, id) {
       '<div class="gallery">' + allPhotos.map(p => '<img src="' + p + '" alt="Guest photo of ' + esc(f.name) + '">').join('') + '</div>' : '') +
     '<hr class="divider">' +
     '<div class="section-title" style="margin-top:0"><span>Reviews (' + rs.length + ')</span></div>' +
-    (rs.length ? rs.map(r => reviewHtml(r, myVendor)).join('') :
+    (rs.length ? rs.map(r => reviewHtml(r)).join('') :
       '<div class="empty"><span class="big">📝</span>No reviews yet — be the first!</div>');
 }
 
-function reviewHtml(r, canVendorRespond) {
+function reviewHtml(r) {
   const ru = getUser(r.userId);
   const u = me();
   const liked = r.likes.includes(u.id);
@@ -309,9 +307,7 @@ function reviewHtml(r, canVendorRespond) {
     '<button class="' + (liked ? 'on' : '') + '" aria-pressed="' + liked + '" onclick="likeReview(\'' + r.id + '\')">Helpful · ' + r.likes.length + '</button>' +
     '<button onclick="toggleCommentBox(\'' + r.id + '\')">Comment · ' + r.comments.length + '</button>' +
     '<button onclick="reportContent(\'review\',\'' + r.id + '\')">Report</button>' +
-    (canVendorRespond && !r.vendorResponse ? '<button onclick="openVendorReply(\'' + r.id + '\')">Respond</button>' : '') +
     '</div>' +
-    (r.vendorResponse ? '<div class="vendor-reply"><b>Vendor response:</b> ' + esc(r.vendorResponse) + '</div>' : '') +
     r.comments.map(c => {
       const cu = getUser(c.userId);
       return '<div class="comment">' + avatarHtml(cu, 'av') + '<div><b>' + userName(cu) + '</b> ' + esc(c.text) + ' <span class="muted">' + timeAgo(c.ts) + '</span></div></div>';
@@ -415,26 +411,8 @@ function submitReview(foodId) {
   const f = getFood(foodId);
   logActivity(u.id, 'reviewed ' + f.name + ' — ' + rateVal + ' Pups', '#/food/' + foodId);
   u.followers.forEach(fid => notify(fid, u.name + ' reviewed ' + f.name + ' (' + rateVal + ' Pups)', '#/food/' + foodId));
-  const v = getVendor(f.vendorId);
-  if (v && v.ownerUserId) notify(v.ownerUserId, 'New ' + rateVal + '-Pup review on ' + f.name, '#/food/' + foodId);
   save(); closeModal(); render();
   toast('Review posted — thanks for feeding the community! 🎪');
-}
-
-/* ---- vendor reply ---- */
-function openVendorReply(reviewId) {
-  openModal('<h2>↩️ Respond to review</h2>' +
-    '<label class="field">Your public response<textarea id="vrText" maxlength="300"></textarea></label>' +
-    '<button class="btn block" onclick="submitVendorReply(\'' + reviewId + '\')">Post response</button>');
-}
-function submitVendorReply(reviewId) {
-  const t = document.getElementById('vrText').value.trim();
-  if (!t) return;
-  const r = getReview(reviewId);
-  r.vendorResponse = t;
-  notify(r.userId, 'A vendor responded to your review', '#/food/' + r.foodId);
-  save(); closeModal(); render();
-  toast('Response posted');
 }
 
 /* ================= LISTS ================= */

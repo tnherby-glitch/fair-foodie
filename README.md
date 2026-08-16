@@ -1,7 +1,10 @@
-# MN Fair Foodie Guide 🌭🎡
+# MN Fair Foodie Finder
 
-A mobile-first web app for the Minnesota State Fair, built from the *State Fair Food App V2* PRD.
-Search, rate (1–5 Pronto Pups!), review, list, and map every food at the Great Minnesota Get-Together.
+A community-focused, photo-forward web app for the Minnesota State Fair, built from the
+*State Fair Food App V2* PRD. Find, rate (1–5 pups!), review, list, and map all 3,777 foods
+across 277 stands — real 2026 data and photography. Design system: see `DESIGN.md`.
+
+Live: https://tnherby-glitch.github.io/fair-foodie/
 
 ## Run it
 
@@ -19,10 +22,11 @@ Best viewed at mobile width — it's designed as a phone app (installable-style 
 ## Demo personas
 
 The onboarding screen lets you create a real profile **or** jump in as:
-- 🎤 **Maddy Munchies** — verified influencer (featured lists, analytics)
+- 🌟 **Allison** — the headline influencer; her real 50-item ranked 2026 list is the pinned default for every user
 - 📝 **Ole's Eats** — food blogger (Blogger badge, long-form reviews)
-- 🌭 **Pronto Pup Crew** — vendor (booth dashboard, sold-out toggles, review responses)
-- 🎡 **Fair Admin** — administrator (moderation, verification, push notifications)
+- 🎡 **Fair Admin** — administrator (moderation, sponsorship control, push notifications)
+
+(Maddy Munchies, Curd Nerd, and Sky Glider Sam are also switchable from Profile → Demo controls.)
 
 Switch personas anytime from **Profile → Demo controls**, and reset all demo data there too.
 
@@ -41,16 +45,14 @@ get numbered stops with an estimated walking time from the Main Gate (nearest-ne
 **Influencer** — verified badge, featured-list submission, home-page featured carousel with
 views/likes, follower notifications, engagement analytics, social share.
 
-**Vendor** — claim flow with admin verification, menu/price/dietary editing, daily specials, hours,
-sold-out toggles, per-item ratings & list-add analytics, peak-hours chart, one response per review.
+**Vendors (2026 scope)** — vendor stands are catalog data only (names, locations, photos, hours, deals). Vendor self-service accounts were removed to keep the app community-focused and administratively light.
 
-**Photos** — each food's main image resolves in order: official photo (set by the owning vendor or
-an admin via "Official photo" / "Add photo") → latest guest review photo → category placeholder.
+**Photos** — each food's main image resolves in order: official photo (set by an admin via "Official photo" / "Add photo") → latest guest review photo → category placeholder.
 Guest photos always collect in the food's "Photos from foodies" gallery.
 
-**Admin** — moderation queue (remove/warn/dismiss), user management (ban/verify), vendor claim
-approval, featured content control, analytics dashboard (DAU, top searches, most reviewed),
-segmented push notifications, JSON data export.
+**Admin** — moderation queue (remove/warn/dismiss), user management (ban/verify), sponsored/
+featured list control with a pinned default, analytics dashboard (DAU, top searches, most
+reviewed), segmented push notifications, JSON data export.
 
 **Blogger/social** — follow/unfollow, activity feed (Following/Everyone), Blogger badge at 25
 reviews, trending foods, daily challenge on home.
@@ -60,13 +62,15 @@ keyboard-operable map pins, visible focus rings, reduced-motion support.
 
 ## Files
 
-- `index.html` — app shell (topbar, tab bar, toast/modal roots)
-- `css/styles.css` — carnival theme, light, WCAG-minded contrast
-- `js/data.js` — state + localStorage persistence + seeded fair data (24 foods, 15 vendors)
-- `js/ui.js` — shared components (toasts, modals, Pronto Pup ratings, image upload)
-- `js/views.js` — onboarding, home, search, food detail, reviews, lists
-- `js/views2.js` — map & routing, feed, notifications, profiles, vendor dashboard, admin console
+- `index.html` — app shell (topbar, 4-tab bar, toast/modal roots)
+- `css/styles.css` — Foodie Finder brand system (see `DESIGN.md`)
+- `js/catalog.js` — **generated** food/vendor/geo catalog (`tools/build-catalog.ps1`); don't hand-edit
+- `js/data.js` — user-state persistence (localStorage) + demo seed content
+- `js/ui.js` — shared components (toasts, modals, pup ratings, photos)
+- `js/views.js` — onboarding, explore, search, food detail, reviews, lists
+- `js/views2.js` — map & routing, feed, notifications, profiles, admin console
 - `js/app.js` — hash router
+- `photos/`, `assets/` — real fair photography and the Pin-Pup logo suite
 - `serve.ps1` — zero-dependency PowerShell static server
 
 ## Notes / next steps
