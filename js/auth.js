@@ -115,6 +115,28 @@ async function sendMagicLink(email, profileData) {
   } catch (e) { return { ok: false, error: String(e) }; }
 }
 
+/* Real OAuth sign-in (Google / Apple). Requires the provider to be configured
+   in Supabase → Authentication → Providers, and listed in BACKEND.oauthProviders. */
+function oauthProviders() {
+  return (authConfigured() && Array.isArray(BACKEND.oauthProviders)) ? BACKEND.oauthProviders : [];
+}
+async function signInWithProvider(provider) {
+  if (!authConfigured()) { toast('Accounts are not configured yet.'); return; }
+  try {
+    // capture avatar/name intent so the profile can be refined after redirect
+    try {
+      const name = (document.getElementById('obName') || {}).value;
+      localStorage.setItem('ff_signup', JSON.stringify({ name: (name || '').trim() || undefined, avatar: (typeof obPhoto !== 'undefined' && obPhoto) || (typeof obAvatar !== 'undefined' ? obAvatar : undefined) }));
+    } catch (e) {}
+    const { error } = await sbClient.auth.signInWithOAuth({
+      provider: provider,
+      options: { redirectTo: appBaseUrl() },
+    });
+    if (error) toast(provider[0].toUpperCase() + provider.slice(1) + ' sign-in isn’t available yet.');
+    // on success the browser redirects to the provider, then back to the app
+  } catch (e) { toast('Could not start sign-in.'); }
+}
+
 function authIsReal() {
   const u = getUser(S.currentUserId);
   return !!(u && u.real);

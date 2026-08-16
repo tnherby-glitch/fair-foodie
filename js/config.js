@@ -8,4 +8,8 @@
 const BACKEND = {
   url: 'https://muhbnazpmyvcvblzmfqo.supabase.co',
   anonKey: 'sb_publishable_5BIy5E6EkUzzD09nQ75jqg_nTBtWMdC',
+  /* OAuth sign-in providers to show on the sign-in screen. Only list a provider
+     AFTER you've configured it in Supabase → Authentication → Providers.
+     Options: 'google', 'apple'. Email magic-link is always available. */
+  oauthProviders: [],
 };

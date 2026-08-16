@@ -37,6 +37,7 @@ function viewOnboarding(el) {
     '<div class="card" style="text-align:left">' +
     '<h2 style="font-size:16px;margin:0 0 4px">Create your profile</h2>' +
     '<p class="muted" style="margin:0 0 12px">' + (realAuth ? 'We\'ll email you a one-tap sign-in link — no password.' : 'Pick a name and jump in.') + '</p>' +
+    oauthButtons() +
     '<label class="field">Display name<input type="text" id="obName" maxlength="30" placeholder="e.g. Corn Dog Connie" value="' + esc(obNameVal) + '"></label>' +
     (realAuth ? '<label class="field">Email<input type="email" id="obEmail" placeholder="you@example.com" value="' + esc(obEmailVal) + '"></label>' : '') +
     '<div class="field" style="font-size:13px;font-weight:700">Pick an avatar <span class="muted" style="font-weight:400">(or upload a photo, max 5MB)</span>' +
@@ -49,6 +50,13 @@ function viewOnboarding(el) {
     '<button class="btn block" id="obGo" onclick="obCreate()">' + (realAuth ? 'Email me a sign-in link' : 'Continue') + '</button>' +
     '</div>' +
     demoBlock() + '</div>';
+}
+function oauthButtons() {
+  const provs = typeof oauthProviders === 'function' ? oauthProviders() : [];
+  if (!provs.length) return '';
+  const label = { google: '🔵 Continue with Google', apple: '🍎 Continue with Apple' };
+  return provs.map(p => '<button class="oauth-btn" onclick="signInWithProvider(\'' + p + '\')">' + (label[p] || ('Continue with ' + p)) + '</button>').join('') +
+    '<div class="muted" style="text-align:center;margin:6px 0 12px">— or with email —</div>';
 }
 function demoBlock() {
   return '<div class="muted" style="margin:16px 0 6px">Just exploring? Jump in as a demo persona:</div>' +
