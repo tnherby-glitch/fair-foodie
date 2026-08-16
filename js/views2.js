@@ -287,20 +287,35 @@ function mapPick(vid) {
   render();
 }
 function vendorCardHtml(v, routeIdx) {
+  /* menu sorted by community pup score — top-rated first, unrated last */
   const menu = S.foods.filter(f => f.vendorId === v.id);
+  menu.sort((a, b) => {
+    const ra = foodRating(a.id), rb = foodRating(b.id);
+    return (rb.avg - ra.avg) || (rb.count - ra.count);
+  });
   const shown = menu.slice(0, 10);
+  const anyRated = menu.some(f => foodRating(f.id).count);
   const walk = walkMinFromGate(v);
   return '<div class="card">' +
     (v.photo ? '<div class="photo" style="background-image:url(' + v.photo + ');margin-bottom:12px"></div>' : '') +
-    '<div class="row between"><h2 style="font-size:16px;margin:0;font-weight:600">' + esc(v.name) + (v.verified ? ' <span class="vbadge">✔</span>' : '') + '</h2>' +
+    '<div class="row between"><h2 style="font-size:16px;margin:0;font-weight:600">' + esc(v.name) + '</h2>' +
     (routeIdx >= 0 ? '<span class="pill new">Stop ' + (routeIdx + 1) + '</span>' : '') + '</div>' +
     '<div class="muted" style="margin:4px 0">' + esc(v.loc || '') + (v.hours ? ' · ' + esc(v.hours) : '') + '</div>' +
     (v.specials ? '<div class="vendor-reply">Today: ' + esc(v.specials) + '</div>' : '') +
     (v.offers ? '<div class="vendor-reply">Deals: ' + esc(v.offers.length > 140 ? v.offers.slice(0, 137) + '…' : v.offers) + '</div>' : '') +
     '<div class="muted" style="margin:8px 0 4px">Est. wait <b>' + waitEstimate(v) + ' min</b>' + (walk ? ' · <b>' + walk + ' min</b> walk from Main Gate' : '') + '</div>' +
-    shown.map(f => '<a class="row between" style="padding:7px 0;border-top:1px solid var(--line);color:inherit" href="#/food/' + f.id + '">' +
-      '<span>' + f.emoji + ' ' + esc(f.name) + (f.isNew ? ' <span class="pill new">New</span>' : '') + (f.soldOut ? ' <span class="pill soldout">SOLD OUT</span>' : '') + '</span>' +
-      (f.price ? '<span class="muted">$' + f.price.toFixed(2).replace(/\.00$/, '') + '</span>' : '') + '</a>').join('') +
+    (anyRated ? '<div class="muted" style="margin:6px 0 2px;font-size:11.5px;letter-spacing:.04em;font-weight:700;text-transform:uppercase">Menu · top rated first</div>' : '') +
+    shown.map(f => {
+      const r = foodRating(f.id);
+      return '<a class="row between" style="padding:8px 0;border-top:1px solid var(--line);color:inherit" href="#/food/' + f.id + '">' +
+        '<span class="grow" style="min-width:0">' + f.emoji + ' ' + esc(f.name) +
+        (blueRibbon(f.id) ? ' <span class="pill" style="background:var(--ribbon);color:#fff">Blue Ribbon</span>' : '') +
+        (f.isNew ? ' <span class="pill new">New</span>' : '') +
+        (f.soldOut ? ' <span class="pill soldout">SOLD OUT</span>' : '') +
+        (f.price ? ' <span class="muted">· $' + f.price.toFixed(2).replace(/\.00$/, '') + '</span>' : '') + '</span>' +
+        (r.count ? '<span style="flex-shrink:0">' + ratingCompact(f.id) + '</span>' : '') +
+        '</a>';
+    }).join('') +
     (menu.length > shown.length ? '<div class="muted" style="padding:8px 0 0;border-top:1px solid var(--line)">+ ' + (menu.length - shown.length) + ' more items — search "' + esc(v.name) + '" to see all</div>' : '') +
     '</div>';
 }
