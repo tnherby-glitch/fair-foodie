@@ -11,7 +11,7 @@ const BACKEND = {
   /* OAuth sign-in providers to show on the sign-in screen. Only list a provider
      AFTER you've configured it in Supabase → Authentication → Providers.
      Options: 'google', 'apple'. Email magic-link is always available. */
-  oauthProviders: [],
+  oauthProviders: ['google'],
 };
 
 /* Demo mode surfaces the one-tap personas, the profile persona switcher, and
