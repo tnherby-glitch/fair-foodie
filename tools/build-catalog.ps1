@@ -1,4 +1,4 @@
-# Builds js/catalog.js + photos/ from the MN State Fair 2026 Food Database export.
+﻿# Builds js/catalog.js + photos/ from the MN State Fair 2026 Food Database export.
 # Usage: powershell -File tools\build-catalog.ps1 -Src "<extracted database folder>"
 param([string]$Src = "C:\Users\timhe\AppData\Local\Temp\claude\C--Users-timhe--claude-sessions-State-Fair-APP\ccf294be-50d5-4505-ac95-2212cc9fe090\scratchpad\fooddb\MN State Fair 2026 Food Database")
 
