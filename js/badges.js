@@ -45,6 +45,35 @@ const LEVEL_BADGES = [
   { id: 'lvl50', n: 50, name: 'Mythic Minnesota Munch Master', emoji: '👑', flavor: 'Sven and Ole are telling stories about you at the Machinery Hill campfire.' },
 ];
 
+/* ---------- derived tag layer (Tier B) ----------
+   The generated catalog has no pickle/spicy/building fields, so we derive them:
+   flavor tags from the item name, building from the vendor's location text.
+   Kept as pure functions so we never hand-edit js/catalog.js. */
+function foodTags(f) {
+  const n = (f && f.name || '').toLowerCase();
+  const t = [];
+  if (/pickle|dill/.test(n)) t.push('pickle');
+  // curated spicy keywords — avoids false hits like "hot dog" / "hot chocolate"
+  if (/spicy|jalapen|sriracha|buffalo|habanero|ghost pepper|nashville|cajun|\bchil(i|e)|diablo|fire ?cracker|peri[- ]?peri|hot honey|szechuan|gochujang|el diablo|flamin|scorpion|carolina reaper/.test(n)) t.push('spicy');
+  return t;
+}
+function foodHasTag(f, tag) { return foodTags(f).indexOf(tag) >= 0; }
+
+/* The named food halls used for Menu Completionist. Vendor.loc keyword → building. */
+const FOOD_BUILDINGS = [
+  { key: 'grandstand', name: 'Grandstand', kw: 'grandstand' },
+  { key: 'food', name: 'Food Building', kw: 'food building' },
+  { key: 'coliseum', name: 'Warner Coliseum', kw: 'coliseum' },
+  { key: 'bazaar', name: 'International Bazaar', kw: 'international bazaar' },
+  { key: 'westend', name: 'West End Market', kw: 'west end' },
+];
+function foodBuildingKey(f) {
+  const v = getVendor(f && f.vendorId); if (!v || !v.loc) return null;
+  const loc = v.loc.toLowerCase();
+  for (let i = 0; i < FOOD_BUILDINGS.length; i++) { if (loc.indexOf(FOOD_BUILDINGS[i].kw) >= 0) return FOOD_BUILDINGS[i].key; }
+  return null;
+}
+
 /* Tier A achievements — everything the catalog data supports today. */
 const ACHIEVEMENTS = [
   { id: 'newkid',     name: 'New Kid on the Block', emoji: '🆕', flavor: 'Try every official new food of the season.',
@@ -67,6 +96,13 @@ const ACHIEVEMENTS = [
     goal: () => 1, progress: c => c.anyBefore(9) ? 1 : 0 },
   { id: 'nightowl',   name: 'Night Owl Nosher',     emoji: '🌙', flavor: 'Check something in after 9pm.',
     goal: () => 1, progress: c => c.anyAfter(21) ? 1 : 0 },
+  // ---- Tier B (derived tags) ----
+  { id: 'pickle',        name: 'Pickle Pioneer',    emoji: '🥒', flavor: 'Eat 3 pickle-forward items.',
+    goal: () => 3, progress: c => c.pickleCount },
+  { id: 'heat',          name: 'Heat Seeker',       emoji: '🌶️', flavor: 'Eat 5 spicy items.',
+    goal: () => 5, progress: c => c.spicyCount },
+  { id: 'completionist', name: 'Menu Completionist', emoji: '🍽️', flavor: 'Eat something from every food hall.',
+    goal: () => FOOD_BUILDINGS.length, progress: c => c.buildingsVisited },
 ];
 
 /* ---------- evaluation ---------- */
@@ -89,6 +125,9 @@ function badgeContext(userId) {
     get officialCount() { return foods.filter(f => f.official).length; },
     get photoReviews() { return reviews.filter(r => r.photos && r.photos.length).length; },
     get maxPerDay() { return perDay(); },
+    get pickleCount() { return foods.filter(f => foodHasTag(f, 'pickle')).length; },
+    get spicyCount() { return foods.filter(f => foodHasTag(f, 'spicy')).length; },
+    get buildingsVisited() { const s = new Set(); foods.forEach(f => { const k = foodBuildingKey(f); if (k) s.add(k); }); return s.size; },
     nameHas: kw => foods.some(f => f.name.toLowerCase().indexOf(kw) >= 0),
     anyBefore: h => entries.some(e => new Date(e.ts).getHours() < h),
     anyAfter: h => entries.some(e => new Date(e.ts).getHours() >= h),
