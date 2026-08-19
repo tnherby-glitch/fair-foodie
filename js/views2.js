@@ -226,6 +226,13 @@ function viewMap(el, params) {
   STREETS.vert.forEach(s => {
     svg += '<line x1="' + s.x + '" y1="' + (MY - 16) + '" x2="' + s.x + '" y2="' + (MAPH - MY + 18) + '" stroke="#fff" stroke-width="10"/>';
   });
+  // Grey out the NW corner — north of Randall Ave and west of Dan Elmer Way. On the
+  // official map that's the North lots, charter buses, and transit staging, not
+  // walkable fairgrounds. Clipped to the grounds so it reads as an interior zone.
+  const _randY = (STREETS.horiz.find(s => /Randall/.test(s.name)) || { y: 358 }).y;
+  const _elmerX = 352, _nwX0 = MX - 20, _nwY0 = MY - 16;
+  svg += '<rect x="' + _nwX0 + '" y="' + _nwY0 + '" width="' + (_elmerX - _nwX0) + '" height="' + (_randY - _nwY0) + '" fill="#cfccc3" opacity="0.62"/>' +
+    '<text x="' + Math.round((_nwX0 + _elmerX) / 2) + '" y="' + Math.round((_nwY0 + _randY) / 2) + '" text-anchor="middle" font-size="10" font-style="italic" fill="#89857b">Parking &amp; staging</text>';
   svg += '</g>';
   STREETS.horiz.forEach(s => {
     svg += '<text x="' + (MX - 14) + '" y="' + (s.y - 7) + '" font-size="10" fill="#aca699">' + s.name + '</text>';
