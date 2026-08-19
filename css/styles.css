@@ -121,6 +121,38 @@ h1, h2, h3 { line-height: 1.15; margin: 0; font-family: var(--font-display); }
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
 }
 .segmented .seg.on { background: var(--paper); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+
+/* "Ate this" check-in button */
+.btn.ate { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+.btn.ate.on { background: #2f7d4f; color: #fff; border-color: #2f7d4f; }
+
+/* Foodie Passport */
+.passport { padding: 16px; }
+.pp-head { display: flex; align-items: center; gap: 13px; }
+.pp-badge {
+  flex: none; width: 54px; height: 54px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 28px;
+  background: var(--cream); border: 1px solid var(--line);
+}
+.pp-level { font-family: var(--font-display, inherit); font-weight: 800; font-size: 17px; line-height: 1.1; }
+.pp-progress { margin-top: 12px; }
+.pp-bar { height: 9px; border-radius: 999px; background: var(--cream); overflow: hidden; }
+.pp-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold, #F4B63E), #e79a2b); border-radius: 999px; }
+.pp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 14px; }
+@media (min-width: 460px) { .pp-grid { grid-template-columns: repeat(3, 1fr); } }
+.pp-ach {
+  border: 1px solid var(--line); border-radius: var(--r-input); padding: 10px 8px; text-align: center;
+  background: var(--paper);
+}
+.pp-ach.on { border-color: #2f7d4f; background: rgba(47,125,79,.07); }
+.pp-ach-emoji { font-size: 22px; line-height: 1; }
+.pp-ach:not(.on) .pp-ach-emoji { filter: grayscale(1); opacity: .45; }
+.pp-ach-name { font-size: 12px; font-weight: 700; margin-top: 5px; line-height: 1.15; }
+.pp-ach-prog { font-size: 10.5px; color: var(--ink-60); margin-top: 3px; }
+.pp-ach.on .pp-ach-prog { color: #2f7d4f; font-weight: 700; }
+.pp-levels { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.pp-lvl { font-size: 20px; }
+.pp-lvl:not(.on) { filter: grayscale(1); opacity: .32; }
 .tab svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.7; }
 .tab.active { color: var(--ink); }
 

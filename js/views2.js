@@ -427,6 +427,41 @@ function markAllRead() {
 }
 
 /* ================= PROFILE ================= */
+/* Foodie Passport card — level, progress to next, and the achievement grid.
+   Shown on your own profile and (read-only) on anyone's public profile. */
+function passportCardHtml(userId) {
+  if (typeof passport !== 'function') return '';
+  const p = passport(userId);
+  const prevN = p.current ? p.current.n : 0;
+  const nextN = p.next ? p.next.n : p.count;
+  const span = Math.max(1, nextN - prevN);
+  const pct = p.next ? Math.min(100, Math.round((p.count - prevN) / span * 100)) : 100;
+  const earnedAch = p.achievements.filter(a => a.earned).length;
+  return '<div class="section-title"><span>🎫 Foodie Passport</span></div>' +
+    '<div class="card passport">' +
+    '<div class="pp-head">' +
+    '<div class="pp-badge">' + (p.current ? p.current.emoji : '🌱') + '</div>' +
+    '<div class="grow"><div class="pp-level">' + (p.current ? esc(p.current.name) : 'Fresh off the bus') + '</div>' +
+    '<div class="muted">' + p.count + ' item' + (p.count === 1 ? '' : 's') + ' eaten · ' + earnedAch + '/' + p.achievements.length + ' achievements</div></div>' +
+    '</div>' +
+    (p.next ?
+      '<div class="pp-progress"><div class="pp-bar"><span style="width:' + pct + '%"></span></div>' +
+      '<div class="muted" style="margin-top:5px">' + p.remaining + ' more to <b>' + esc(p.next.name) + '</b> ' + p.next.emoji + '</div></div>'
+      : '<div class="muted" style="margin-top:7px">👑 Max level reached — Mythic Munch Master!</div>') +
+    '<div class="pp-grid">' +
+    p.achievements.map(a =>
+      '<div class="pp-ach' + (a.earned ? ' on' : '') + '" title="' + esc(a.flavor) + '">' +
+      '<div class="pp-ach-emoji">' + a.emoji + '</div>' +
+      '<div class="pp-ach-name">' + esc(a.name) + '</div>' +
+      '<div class="pp-ach-prog">' + (a.earned ? 'Earned ✓' : a.progress + '/' + a.goal) + '</div>' +
+      '</div>').join('') +
+    '</div>' +
+    '<div class="pp-levels" aria-label="Level badges">' +
+    p.levels.map(l => '<span class="pp-lvl' + (l.earned ? ' on' : '') + '" title="' + esc(l.name) + ' · ' + l.n + ' items">' + l.emoji + '</span>').join('') +
+    '</div>' +
+    '</div>';
+}
+
 function viewProfile(el) {
   const u = me();
   const myReviews = S.reviews.filter(r => r.userId === u.id && !r.removed);
@@ -453,6 +488,8 @@ function viewProfile(el) {
     (u.role === 'admin' ? '<button class="btn small" onclick="location.hash=\'#/admin\'">🛡️ Admin console</button>' : '') +
     (u.role === 'influencer' ? '<button class="btn small yellow" onclick="openInfluencerStats()">📊 My analytics</button>' : '') +
     '</div></div>' +
+
+    passportCardHtml(u.id) +
 
     '<div class="section-title"><span>My lists (' + myLists.length + ')</span></div>' +
     myLists.map(listRowHtml).join('') +
@@ -558,6 +595,7 @@ function viewUser(el, id) {
     '</div>' +
     '<button class="btn ' + (following ? 'secondary' : '') + '" onclick="followUser(\'' + id + '\')">' + (following ? '✓ Following' : '＋ Follow') + '</button>' +
     '</div>' +
+    passportCardHtml(id) +
     '<div class="section-title"><span>Lists</span></div>' +
     (theirLists.length ? theirLists.map(listRowHtml).join('') : '<div class="empty">No visible lists.</div>') +
     '<div class="section-title"><span>Recent reviews</span></div>' +

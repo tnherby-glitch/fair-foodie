@@ -436,7 +436,8 @@ function viewFood(el, id) {
     (v.loc ? '<div class="detail-meta">' + esc(v.loc) + '</div>' : '') +
     '</div>' +
     '<div class="action-row">' +
-    '<button class="btn" onclick="openRateModal(\'' + f.id + '\')">Rate & review</button>' +
+    '<button class="btn ate' + (hasEaten(u.id, f.id) ? ' on' : '') + '" aria-pressed="' + hasEaten(u.id, f.id) + '" onclick="ateToggle(\'' + f.id + '\')">' + (hasEaten(u.id, f.id) ? '✓ Ate this' : '＋ Ate this') + '</button>' +
+    '<button class="btn secondary" onclick="openRateModal(\'' + f.id + '\')">Rate &amp; review</button>' +
     '<button class="btn secondary" onclick="openAddToList(\'' + f.id + '\')">Add to my list</button>' +
     '<button class="btn ghost" onclick="location.hash=\'#/vendor/' + v.id + '\'">See vendor</button>' +
     '<button class="btn ghost" onclick="location.hash=\'#/map?vendor=' + v.id + '\'">Find booth</button>' +
@@ -453,6 +454,13 @@ function viewFood(el, id) {
     '<div class="section-title" style="margin-top:0"><span>Reviews (' + rs.length + ')</span></div>' +
     (rs.length ? rs.map(r => reviewHtml(r)).join('') :
       '<div class="empty"><span class="big">📝</span>No reviews yet — be the first!</div>');
+}
+
+/* one-tap "Ate it" check-in from the food page */
+function ateToggle(foodId) {
+  const nowEaten = toggleEaten(foodId);
+  toast(nowEaten ? 'Checked in — added to your Passport 🎪' : 'Removed from your Passport');
+  render();
 }
 
 function reviewHtml(r) {
@@ -570,6 +578,7 @@ function submitReview(foodId) {
   const u = me();
   const r = { id: uid('r'), foodId, userId: u.id, rating: rateVal, text, photos: ratePhotos.slice(), likes: [], comments: [], reported: false, removed: false, ts: Date.now(), vendorResponse: null };
   S.reviews.push(r);
+  if (typeof markEaten === 'function') { markEaten(foodId); checkBadgeUnlocks(u.id); } // reviewing implies you ate it — count it in the Passport
   /* real accounts: post to the shared backend and fold into the live aggregate */
   if (typeof postReview === 'function' && typeof authIsReal === 'function' && authIsReal()) {
     postReview(r).then(ok => {

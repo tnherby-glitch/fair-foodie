@@ -6,7 +6,7 @@
 /* global CATALOG, localStorage */
 
 const DB_KEY = 'fairfoodie_user_v1';
-const DATA_VERSION = 14;
+const DATA_VERSION = 15;
 let S = null;      // global app state (user state + in-memory catalog)
 let dataRev = 0;   // bumped on every save so cached indexes can invalidate
 
@@ -24,7 +24,7 @@ const store = (() => {
 /* keys persisted to localStorage — catalog arrays are never persisted */
 const USER_KEYS = ['version', 'currentUserId', 'defaultListId', 'users', 'reviews', 'lists', 'baseRatings',
   'reports', 'vendorRequests', 'activity', 'notifications', 'challenges', 'pushLog',
-  'analytics', 'amenities', 'foodOverrides', 'vendorOverrides'];
+  'analytics', 'amenities', 'foodOverrides', 'vendorOverrides', 'eaten'];
 
 let foodIdx = null, vendorIdx = null;
 
@@ -363,6 +363,9 @@ function seedUserState() {
     currentUserId: null,
     defaultListId: 'l0', // Allison's list — the default sponsored placement for every user
     users, reviews, lists, reports, activity, amenities, baseRatings,
+    // demo passport: Allison has checked in 32 items (a Ribbon-Worthy Ruminant),
+    // spread ~40 min apart so the log looks lived-in
+    eaten: allison2026.slice(0, 32).map((fid, i) => ({ userId: 'u_inf2', foodId: fid, ts: now - i * 2400000 })),
     vendorRequests: [],
     foodOverrides: {},
     vendorOverrides,

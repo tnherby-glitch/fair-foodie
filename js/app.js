@@ -70,6 +70,7 @@ function render() {
 window.addEventListener('hashchange', render);
 async function bootApp() {
   loadState();
+  if (typeof reconcileBadges === 'function') reconcileBadges();
   /* capture share attribution (?ref=&ch=) for the deferred-deep-link moment */
   try {
     const q = new URLSearchParams(location.search);
