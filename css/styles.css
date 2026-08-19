@@ -94,18 +94,33 @@ h1, h2, h3 { line-height: 1.15; margin: 0; font-family: var(--font-display); }
 .avatar-btn img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ---------- main / tabbar ---------- */
-#view { flex: 1; padding: 20px 18px 96px; }
+#view { flex: 1; padding: 20px 18px calc(104px + env(safe-area-inset-bottom)); }
 .tabbar {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
   width: 100%; max-width: 520px; z-index: 40;
   display: flex; background: var(--paper);
   border-top: 1px solid var(--line);
-  padding-bottom: env(safe-area-inset-bottom);
+  /* lift the tap row above Safari's toolbar + home-swipe zone so taps hit tabs, not chrome */
+  padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
 }
 .tab {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 10px 0 9px; font-size: 11px; font-weight: 600; color: var(--ink-30);
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 56px; padding: 8px 0; font-size: 11px; font-weight: 600; color: var(--ink-30);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none;
 }
+.tab:active { background: var(--cream); }
+
+/* segmented control (Explore: Foods | Vendors) */
+.segmented {
+  display: flex; gap: 4px; background: var(--cream); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px; margin: 2px 0 14px;
+}
+.segmented .seg {
+  flex: 1; text-align: center; padding: 9px 0; border-radius: 999px;
+  font-size: 13.5px; font-weight: 700; color: var(--ink-60);
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.segmented .seg.on { background: var(--paper); color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
 .tab svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.7; }
 .tab.active { color: var(--ink); }
 
@@ -377,8 +392,23 @@ label.field > input, label.field > textarea, label.field > select { margin-top: 
 .table th, .table td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--line); }
 .table th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-60); }
 
+/* ---------- add to home screen nudge ---------- */
+.a2hs {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 85;
+  width: min(460px, 92vw); background: var(--ink); color: #fff;
+  border-radius: var(--r-input); padding: 13px 14px 13px 16px;
+  display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow, 0 8px 30px rgba(0,0,0,.25));
+  font-size: 13px; line-height: 1.4;
+}
+.a2hs b { color: var(--gold, #F4B63E); }
+.a2hs .a2hs-x {
+  flex: none; background: rgba(255,255,255,.15); color: #fff; border: 0;
+  width: 30px; height: 30px; border-radius: 50%; font-size: 15px; cursor: pointer;
+}
+
 /* ---------- toasts & modal ---------- */
-.toasts { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); z-index: 90; width: min(420px, 90vw); display: flex; flex-direction: column; gap: 8px; }
+.toasts { position: fixed; bottom: calc(104px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 90; width: min(420px, 90vw); display: flex; flex-direction: column; gap: 8px; }
 .toast {
   background: var(--ink); color: #fff; padding: 13px 18px; border-radius: var(--r-input);
   box-shadow: var(--shadow-lift); font-size: 13.5px; font-weight: 600;

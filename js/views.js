@@ -133,6 +133,7 @@ function viewHome(el) {
 
   el.innerHTML =
     '<div class="greet">Hungry, ' + esc(u.name.split(' ')[0]) + '?</div>' +
+    exploreToggleHtml('foods') +
     '<a class="searchpill" href="#/search" aria-label="Search foods and vendors">' +
     '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4" stroke-linecap="round"/></svg>' +
     '<span>Find your next bite<br><span class="muted">' + S.foods.length + ' foods · ' + S.vendors.length + ' vendors · new for 2026</span></span></a>' +
@@ -159,11 +160,109 @@ function viewHome(el) {
     }).join('') +
     '</div>' +
 
-    '<div class="section-title"><span>New this year</span><a class="see-all" href="#/search?new=1">Show all</a></div>' +
+    '<div class="section-title"><span>New this year</span><a class="see-all" href="#/new">See all ' + S.foods.filter(f => f.official).length + '</a></div>' +
     '<div class="hlist" role="list">' + fresh.map(foodMiniCardHtml).join('') + '</div>' +
+
+    '<div class="section-title"><span>Vendors to explore</span><a class="see-all" href="#/vendors">See all ' + S.vendors.length + '</a></div>' +
+    '<div class="hlist" role="list">' + featuredVendors(12).map(([v, c]) => vendorPcardHtml(v, c)).join('') + '</div>' +
 
     '<div class="section-title"><span>Trending on the midway</span></div>' +
     '<div class="grid2">' + trend.map(foodCardHtml).join('') + '</div>';
+}
+
+/* Explore has two browse modes — Foods (default) and Vendors — as a segmented
+   toggle, so you can flip to an alphabetical, photo-forward vendor directory. */
+function exploreToggleHtml(active) {
+  return '<div class="segmented" role="tablist" aria-label="Browse foods or vendors">' +
+    '<a class="seg ' + (active === 'foods' ? 'on' : '') + '" role="tab" aria-selected="' + (active === 'foods') + '" href="#/home">Foods</a>' +
+    '<a class="seg ' + (active === 'vendors' ? 'on' : '') + '" role="tab" aria-selected="' + (active === 'vendors') + '" href="#/vendors">Vendors</a>' +
+    '</div>';
+}
+
+/* ================= VENDOR DIRECTORY ================= */
+const vendorDir = { q: '' };
+let _vendorCountCache = null, _vendorCountRev = -1;
+function vendorItemCounts() {
+  if (_vendorCountRev === dataRev && _vendorCountCache) return _vendorCountCache;
+  const m = Object.create(null);
+  for (const f of S.foods) m[f.vendorId] = (m[f.vendorId] || 0) + 1;
+  _vendorCountCache = m; _vendorCountRev = dataRev;
+  return m;
+}
+/* a photo-forward sampling of vendors for the home carousel: new stands first,
+   then those with the fullest menus — all with a real storefront photo. */
+function featuredVendors(n) {
+  const counts = vendorItemCounts();
+  return S.vendors.filter(v => v.photo)
+    .map(v => [v, counts[v.id] || 0])
+    .sort((a, b) => ((b[0].newVend || b[0].official ? 1 : 0) - (a[0].newVend || a[0].official ? 1 : 0)) || (b[1] - a[1]))
+    .slice(0, n || 12);
+}
+function viewVendors(el) {
+  const q = vendorDir.q.trim().toLowerCase();
+  let vendors = S.vendors.slice();
+  if (q) vendors = vendors.filter(v => v.name.toLowerCase().includes(q) || (v.loc || '').toLowerCase().includes(q));
+  vendors.sort((a, b) => a.name.localeCompare(b.name));
+  const counts = vendorItemCounts();
+  el.innerHTML =
+    exploreToggleHtml('vendors') +
+    '<div class="searchbox">' +
+    '<input type="search" id="vendorSearch" placeholder="Search ' + S.vendors.length + ' vendors" value="' + esc(vendorDir.q) + '" ' +
+    'aria-label="Search vendors" autocomplete="off" oninput="vendorTyped(this.value)"></div>' +
+    '<div class="muted" style="margin:2px 2px 8px;font-size:12px">' + vendors.length + ' vendor' + (vendors.length === 1 ? '' : 's') + (q ? ' matching “' + esc(vendorDir.q) + '”' : ' · A–Z') + '</div>' +
+    '<div id="vendorList">' + vendors.map(v => vendorRowHtml(v, counts[v.id] || 0)).join('') +
+    (vendors.length ? '' : '<div class="empty"><span class="big">🔍</span>No vendors match that search.</div>') + '</div>';
+}
+function vendorTyped(v) {
+  vendorDir.q = v;
+  // update just the list + count so the search field keeps focus
+  const q = v.trim().toLowerCase();
+  let vendors = S.vendors.slice();
+  if (q) vendors = vendors.filter(x => x.name.toLowerCase().includes(q) || (x.loc || '').toLowerCase().includes(q));
+  vendors.sort((a, b) => a.name.localeCompare(b.name));
+  const counts = vendorItemCounts();
+  const list = document.getElementById('vendorList');
+  if (list) list.innerHTML = vendors.map(x => vendorRowHtml(x, counts[x.id] || 0)).join('') +
+    (vendors.length ? '' : '<div class="empty"><span class="big">🔍</span>No vendors match that search.</div>');
+}
+/* photo-forward vendor card for horizontal carousels */
+function vendorPcardHtml(v, count) {
+  let photo;
+  if (v.photo) {
+    photo = '<div class="photo" role="img" aria-label="' + esc(v.name) + '" style="background-image:url(' + v.photo + ')"></div>';
+  } else {
+    const f = S.foods.find(x => x.vendorId === v.id && (x.heroImg || x.photo || (typeof foodPhoto === 'function' && foodPhoto(x))));
+    photo = f ? photoHtml(f) : '<div class="photo" style="background:linear-gradient(140deg,#f0ede6,#e2ddd2)"><span class="ph-emoji" aria-hidden="true">🏪</span></div>';
+  }
+  return '<a class="pcard" href="#/vendor/' + v.id + '" aria-label="' + esc(v.name) + '">' + photo +
+    '<div class="pcard-body"><div class="pcard-top"><span class="pcard-title">' + esc(v.name) + '</span></div>' +
+    '<div class="sub">' + count + ' item' + (count === 1 ? '' : 's') + (v.newVend || v.official ? ' · New 2026' : '') + '</div></div></a>';
+}
+function vendorRowHtml(v, count) {
+  const bestNew = v.newVend || (v.official);
+  const area = (v.loc || '').split(/ between | on | at |, /)[0]
+    .replace(/^(North|South|East|West|Northeast|Northwest|Southeast|Southwest)\s+(side|corner|end)?\s*(of\s+)?/i, '').trim();
+  return '<a class="card list-row" href="#/vendor/' + v.id + '">' +
+    vendorThumbHtml(v) +
+    '<span class="grow"><b>' + esc(v.name) + (v.verified ? ' <span class="vbadge" title="Verified">✔</span>' : '') + '</b>' +
+    '<div class="muted">' + count + ' item' + (count === 1 ? '' : 's') + (area ? ' · ' + esc(area.length > 34 ? area.slice(0, 32) + '…' : area) : '') + '</div></span>' +
+    (bestNew ? '<span class="pill new">New</span>' : '') + '</a>';
+}
+
+/* ================= NEW THIS YEAR ================= */
+function viewNew(el) {
+  const official = S.foods.filter(f => f.official);
+  const otherNew = S.foods.filter(f => f.isNew && !f.official);
+  el.innerHTML =
+    '<div class="greet" style="margin-bottom:4px">New This Year</div>' +
+    '<div class="muted" style="margin:0 2px 14px">' + official.length + ' official new foods debuting at the 2026 fair' +
+    (otherNew.length ? ' · ' + otherNew.length + ' more new items' : '') + '</div>' +
+    '<div class="chip-row" style="margin-bottom:12px"><a class="chip" href="#/search?new=1">Filter all new foods →</a></div>' +
+    '<div class="section-title"><span>🎪 Official new foods (' + official.length + ')</span></div>' +
+    '<div class="grid2">' + official.map(foodCardHtml).join('') + '</div>' +
+    (otherNew.length ?
+      '<div class="section-title"><span>Also new in 2026 (' + otherNew.length + ')</span></div>' +
+      '<div class="grid2">' + otherNew.map(foodCardHtml).join('') + '</div>' : '');
 }
 
 /* ================= SEARCH ================= */
@@ -288,7 +387,20 @@ function searchResultsHtml() {
     h += '<div class="muted" style="margin:12px 2px 6px;font-size:11.5px;letter-spacing:.3px"><b style="color:var(--ink)">Sponsored</b> · influencer lists</div>' +
       sp.map(l => listRowHtml(l, { sponsored: true })).join('');
   }
+  /* vendors matching the text query ride above the food results — search spans both */
+  const qv = searchState.q.trim().toLowerCase();
+  if (qv) {
+    const counts = vendorItemCounts();
+    const vmatch = S.vendors.filter(v => v.name.toLowerCase().includes(qv) || (v.loc || '').toLowerCase().includes(qv))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (vmatch.length) {
+      h += '<div class="section-title" style="margin-top:6px"><span>Vendors (' + vmatch.length + ')</span>' +
+        (vmatch.length > 4 ? '<a class="see-all" href="#/vendors" onclick="vendorDir.q=\'' + esc(qv).replace(/'/g, "\\'") + '\'">See all</a>' : '') + '</div>' +
+        vmatch.slice(0, 4).map(v => vendorRowHtml(v, counts[v.id] || 0)).join('');
+    }
+  }
   const shown = Math.min(results.length, searchState.page * SEARCH_PAGE);
+  if (qv) h += '<div class="section-title"><span>Foods</span></div>';
   h += '<div class="muted" style="margin:12px 2px 4px">' + results.length.toLocaleString() + ' food' + (results.length === 1 ? '' : 's') +
     (results.length > shown ? ' · showing ' + shown : '') + '</div>';
   h += '<div class="grid2">' + results.slice(0, shown).map(foodCardHtml).join('') + '</div>';

@@ -27,21 +27,35 @@ const ENTRANCE = { x: MX, y: _dp ? _dp.y : Math.round(MAPH / 2) };  // Main Gate
 const MPP = (LATSPAN * 111320) / (MAPH - 2 * MY);                    // meters per pixel from real span
 const WALK = 74;                                                     // meters/minute, fair-crowd pace
 
-/* labeled zones (text only — pins carry the detail at this density) */
+/* Labeled zones, positioned from the CENTROID of the real vendors located in
+   each zone (vendor.loc keywords → averaged real lat/long → projected). This
+   ties the labels to the actual fairgrounds geography instead of fragile
+   street-crossing guesses, so e.g. the Mighty Midway lands west of the
+   Grandstand and the West End sits where it really is. */
+function _zoneCentroid(kw) {
+  let sLat = 0, sLon = 0, n = 0;
+  const k = kw.toLowerCase();
+  for (const v of S.vendors) {
+    if (v.lat == null) continue;
+    if ((v.loc || '').toLowerCase().indexOf(k) >= 0) { sLat += v.lat; sLon += v.lon; n++; }
+  }
+  return n ? { x: gx(sLon / n), y: gy(sLat / n), n: n } : null;
+}
 function zoneLabels() {
-  const sx = n => { const s = STREETS.vert.find(t => t.name.indexOf(n) === 0); return s ? s.x : null; };
-  const sy = n => { const s = STREETS.horiz.find(t => t.name.indexOf(n) === 0); return s ? s.y : null; };
-  const mid = (a, b) => (a + b) / 2;
+  const defs = [
+    ['Grandstand', 'grandstand'],
+    ['West End Market', 'west end'],
+    ['Mighty Midway', 'mighty midway'],
+    ['Food Building', 'food building'],
+    ['Int’l Bazaar', 'international bazaar'],
+    ['Coliseum', 'coliseum'],
+    ['Dairy Building', 'dairy building'],
+  ];
   const out = [];
-  const und = sx('Underwood'), coop = sx('Cooper'), lig = sx('Liggett'), cham = sx('Chambers'), nel = sx('Nelson');
-  const dan = sy('Dan Patch'), car = sy('Carnes'), jud = sy('Judson'), ran = sy('Randall'), wri = sy('Wright'), mur = sy('Murphy');
-  if (und && dan && car) out.push({ x: und + 30, y: mid(dan, car), t: 'Food Building' });
-  if (coop && jud) out.push({ x: coop + 6, y: jud + 34, t: 'Int’l Bazaar' });
-  if (lig && cham && dan && car) out.push({ x: mid(lig, cham) - 30, y: mid(dan, car), t: 'Grandstand' });
-  if (lig && car && jud) out.push({ x: lig - 34, y: mid(car, jud), t: 'West End' });
-  if (cham && ran && wri) out.push({ x: cham - 20, y: mid(ran, wri), t: 'Mighty Midway' });
-  if (und && mur) out.push({ x: und + 20, y: mur - 26, t: 'North End' });
-  if (nel && jud) out.push({ x: nel, y: jud + 40, t: 'Livestock / Coliseum' });
+  for (let i = 0; i < defs.length; i++) {
+    const c = _zoneCentroid(defs[i][1]);
+    if (c && c.n >= 2) out.push({ x: c.x, y: c.y, t: defs[i][0] });
+  }
   return out;
 }
 

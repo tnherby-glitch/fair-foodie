@@ -31,6 +31,38 @@ function toast(msg, type) {
 /* simulated push notification (PRD: push notifications for interactions) */
 function pushToast(msg) { toast('🔔 ' + msg, 'push'); }
 
+/* ---- Add to Home Screen nudge (iOS Safari) ----
+   Installed as a PWA, Safari's toolbar disappears — which fixes the "taps hit the
+   web bar" problem. Show a one-time, dismissible hint to iOS users in the browser. */
+function _isStandalone() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+}
+function _isIOS() {
+  const ua = navigator.userAgent || '';
+  return /iphone|ipad|ipod/i.test(ua) ||
+    (/Macintosh/.test(ua) && 'ontouchend' in document); // iPadOS reports as Mac
+}
+function maybePromptA2HS() {
+  try {
+    if (document.getElementById('a2hs')) return;
+    if (!S.currentUserId) return;            // only once they're inside the app
+    if (_isStandalone()) return;             // already installed
+    if (!_isIOS()) return;                    // the manual Share→Add flow is iOS-only
+    if (localStorage.getItem('ff_a2hs') === 'dismissed') return;
+    const bar = document.createElement('div');
+    bar.id = 'a2hs';
+    bar.className = 'a2hs';
+    bar.innerHTML = '<div class="grow">Add to your Home Screen for a full-screen app — tap the <b>Share</b> icon, then <b>Add to Home Screen</b>. Buttons work better too.</div>' +
+      '<button class="a2hs-x" aria-label="Dismiss" onclick="dismissA2HS()">✕</button>';
+    document.body.appendChild(bar);
+  } catch (e) {}
+}
+function dismissA2HS() {
+  try { localStorage.setItem('ff_a2hs', 'dismissed'); } catch (e) {}
+  const el = document.getElementById('a2hs');
+  if (el) el.remove();
+}
+
 function openModal(html, onOpen) {
   const root = document.getElementById('modalRoot');
   root.innerHTML =
@@ -126,6 +158,18 @@ function photoHtml(f, cls) {
          : ' style="background:linear-gradient(140deg,' + g[0] + ',' + g[1] + ')"') + '>' +
     (img ? '' : '<span class="ph-emoji" aria-hidden="true">' + f.emoji + '</span>') +
     badges + '</div>';
+}
+
+/* Vendor thumbnail — real storefront photo when we have one, else a
+   representative menu-item photo, else a stand emoji. */
+function vendorThumbHtml(v, cls) {
+  const c = 'photo ' + (cls || 'thumb');
+  if (v && v.photo) {
+    return '<span class="' + c + '" role="img" aria-label="' + esc(v.name) + '" style="background-image:url(' + v.photo + ')"></span>';
+  }
+  const f = S.foods.find(x => x.vendorId === (v && v.id) && (x.heroImg || x.photo || (typeof foodPhoto === 'function' && foodPhoto(x))));
+  if (f) return photoHtml(f, cls || 'thumb');
+  return '<span class="' + c + '" style="background:linear-gradient(140deg,#f0ede6,#e2ddd2)"><span class="ph-emoji" aria-hidden="true">🏪</span></span>';
 }
 
 /* compact rating: one pup + score + count, e.g. "4.7 (1.8k)" */

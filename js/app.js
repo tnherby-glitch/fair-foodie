@@ -43,12 +43,14 @@ function render() {
   topActions.style.visibility = 'visible';
 
   // active tab highlight (4-tab IA: Explore, Map, My Lists, Profile)
-  const tabFor = { home: 'explore', search: 'explore', food: 'explore', vendor: 'explore', map: 'map', lists: 'lists', list: 'lists', feed: 'profile', user: 'profile', notifications: 'profile', profile: 'profile', admin: 'profile' };
+  const tabFor = { home: 'explore', search: 'explore', food: 'explore', vendor: 'explore', vendors: 'explore', new: 'explore', map: 'map', lists: 'lists', list: 'lists', feed: 'profile', user: 'profile', notifications: 'profile', profile: 'profile', admin: 'profile' };
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === (tabFor[page] || '')));
 
   switch (page) {
     case 'home':          viewHome(el); break;
     case 'search':        viewSearch(el, params); break;
+    case 'vendors':       viewVendors(el); break;
+    case 'new':           viewNew(el); break;
     case 'food':          viewFood(el, arg); break;
     case 'vendor':        viewVendorPage(el, arg); break;
     case 'map':           viewMap(el, params); break;
@@ -75,6 +77,7 @@ async function bootApp() {
   } catch (e) {}
   if (!location.hash) location.hash = '#/home';
   render();
+  if (typeof maybePromptA2HS === 'function') maybePromptA2HS();
   /* pull live community pup scores (public read) so rankings reflect real reviews */
   if (typeof ListStore !== 'undefined' && ListStore.configured()) {
     ListStore.foodScores().then(map => { if (map) { S.remoteScores = map; dataRev++; render(); } })

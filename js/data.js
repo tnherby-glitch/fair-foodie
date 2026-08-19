@@ -6,7 +6,7 @@
 /* global CATALOG, localStorage */
 
 const DB_KEY = 'fairfoodie_user_v1';
-const DATA_VERSION = 13;
+const DATA_VERSION = 14;
 let S = null;      // global app state (user state + in-memory catalog)
 let dataRev = 0;   // bumped on every save so cached indexes can invalidate
 
@@ -332,7 +332,7 @@ function seedUserState() {
   const lists = [
     { id: 'l0', slug: 'allisons-2026-fair-list', name: 'Allison\'s 2026 Fair List', ownerId: 'u_inf2', foodIds: allison2026, privacy: 'public', featured: true, likes: ['u_inf1', 'u_blog1', 'u_reg1', 'u_reg2'], ratings: { u_reg1: 5, u_reg2: 5, u_blog1: 5, u_inf1: 4 }, views: 9214, comments: [], collaborators: [], ts: now - 7 * D },
     { id: 'l1', slug: 'maddys-top-10-must-eats-2026', name: 'Maddy\'s Top 10 Must-Eats 2026', ownerId: 'u_inf1', foodIds: ids([idProntoPup, idCurds, idCornRibs, idChocChip, idLumpia, idWalleye, idRoastCorn, idMiniDonut, idPicklePie, idMilk]), privacy: 'public', featured: true, likes: ['u_reg1', 'u_reg2', 'u_blog1'], ratings: { u_reg1: 5, u_reg2: 5, u_blog1: 4 }, views: 4821, comments: [{ id: 'lc1', userId: 'u_reg1', text: 'Used this list all day Saturday — flawless routing!', ts: now - 1 * D }], collaborators: [], ts: now - 6 * D },
-    { id: 'l2', slug: 'new-this-year-worth-the-hype', name: 'New This Year: Worth the Hype?', ownerId: 'u_inf1', foodIds: ids([idPicklePie, idCornRibs, idLumpia, idHmong, idElote, idPeriPeri, idSparkler, idDillCookie]).length >= 4 ? ids([idPicklePie, idCornRibs, idLumpia, idHmong, idElote, idPeriPeri, idSparkler, idDillCookie]) : officialIds.slice(0, 8), privacy: 'public', featured: true, likes: ['u_blog1'], ratings: { u_blog1: 4, u_reg2: 4 }, views: 2214, comments: [], collaborators: [], ts: now - 4 * D },
+    { id: 'l2', slug: 'new-this-year-worth-the-hype', name: '8 New Foods Worth the Hype 🔥', ownerId: 'u_inf1', foodIds: ids([idPicklePie, idCornRibs, idLumpia, idHmong, idElote, idPeriPeri, idSparkler, idDillCookie]).length >= 4 ? ids([idPicklePie, idCornRibs, idLumpia, idHmong, idElote, idPeriPeri, idSparkler, idDillCookie]) : officialIds.slice(0, 8), privacy: 'public', featured: true, likes: ['u_blog1'], ratings: { u_blog1: 4, u_reg2: 4 }, views: 2214, comments: [], collaborators: [], ts: now - 4 * D },
     { id: 'l3', name: 'Ole\'s Classic Circuit', ownerId: 'u_blog1', foodIds: ids([idProntoPup, idMilk, idRoastCorn, idCurds, idMiniDonut]), privacy: 'public', featured: false, likes: ['u_reg1'], ratings: { u_reg1: 4 }, views: 640, comments: [], collaborators: [], ts: now - 3 * D },
     { id: 'l4', name: 'Kids Will Love', ownerId: 'u_reg1', foodIds: ids([idChocChip, idMilk, idMiniDonut, F('lemonade')]), privacy: 'friends', featured: false, likes: [], ratings: {}, views: 25, comments: [], collaborators: [], ts: now - 2 * D },
   ];
@@ -345,7 +345,7 @@ function seedUserState() {
     { id: 'a1', userId: 'u_inf1',  text: 'reviewed Pickle Pie — 4 Pups', link: '#/food/' + idPicklePie, ts: now - 1.2 * D },
     { id: 'a2', userId: 'u_reg1',  text: 'reviewed Longanisa Cheese Curd Lumpia — 5 Pups', link: '#/food/' + idLumpia, ts: now - 0.5 * D },
     { id: 'a3', userId: 'u_blog1', text: 'created list "Ole\'s Classic Circuit"', link: '#/list/l3', ts: now - 3 * D },
-    { id: 'a4', userId: 'u_inf1',  text: 'published featured list "New This Year: Worth the Hype?"', link: '#/list/l2', ts: now - 4 * D },
+    { id: 'a4', userId: 'u_inf1',  text: 'published featured list "8 New Foods Worth the Hype 🔥"', link: '#/list/l2', ts: now - 4 * D },
   ];
 
   /* amenity markers in real lat/long (approximate spots inside the grounds) */
