@@ -18,7 +18,8 @@ workflows:
       xcode: latest
       vars:
         BUNDLE_ID: com.mnfoodiefairguide.app
-        APP_STORE_APPLE_ID: 0000000000 # replace with the numeric Apple ID from App Store Connect > App Information
+        DEVELOPMENT_TEAM: 62KUP5H328 # Apple Developer Team ID
+        APP_STORE_APPLE_ID: 0000000000 # replace with the numeric Apple ID from App Store Connect > App Information (created with the app record)
     scripts:
       - name: Install dependencies
         script: npm ci || npm install
