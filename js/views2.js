@@ -364,8 +364,8 @@ let feedMode = 'following';
 function viewFeed(el) {
   const u = me();
   const items = S.activity.filter(a =>
-    a.userId !== u.id && (feedMode === 'everyone' || u.following.includes(a.userId)));
-  const suggestions = S.users.filter(x => x.id !== u.id && !u.following.includes(x.id) && x.role !== 'admin' && x.role !== 'vendor').slice(0, 4);
+    a.userId !== u.id && !isBlockedByMe(a.userId) && (feedMode === 'everyone' || u.following.includes(a.userId)));
+  const suggestions = S.users.filter(x => x.id !== u.id && !u.following.includes(x.id) && !isBlockedByMe(x.id) && x.role !== 'admin' && x.role !== 'vendor').slice(0, 4);
 
   el.innerHTML =
     '<h1 style="font-size:21px;font-weight:700;margin:4px 0 14px">Community</h1>' +
@@ -390,6 +390,27 @@ function viewFeed(el) {
     }).join('') :
       '<div class="empty"><span class="big">🦗</span>Quiet in here. Follow some foodies or switch to Everyone!</div>');
 }
+/* Block/unblock a user (App Store UGC requirement). Blocking also severs the
+   follow relationship in both directions. */
+function toggleBlock(id) {
+  const u = me(); const t = getUser(id);
+  u.blockedUsers = u.blockedUsers || [];
+  const i = u.blockedUsers.indexOf(id);
+  if (i >= 0) {
+    u.blockedUsers.splice(i, 1);
+    toast('Unblocked ' + t.name);
+  } else {
+    u.blockedUsers.push(id);
+    u.following = u.following.filter(x => x !== id);
+    t.followers = t.followers.filter(x => x !== u.id);
+    t.following = t.following.filter(x => x !== u.id);
+    u.followers = u.followers.filter(x => x !== id);
+    toast('Blocked ' + t.name + ' — their content is hidden from you');
+  }
+  dataRev++; // ratings/lists indexes rebuild without their content
+  save(); render();
+}
+
 function followUser(id) {
   const u = me(); const t = getUser(id);
   if (u.following.includes(id)) {
@@ -517,7 +538,10 @@ function viewProfile(el) {
       '<div class="card" style="margin-top:16px">' +
       '<div class="row" style="margin-top:2px">' +
       '<button class="btn small ghost grow" onclick="signOut()">Sign out</button>' +
-      '</div></div>');
+      '</div></div>') +
+    '<div class="muted" style="text-align:center;margin:14px 0 4px;font-size:12px">' +
+    '<a href="privacy.html" target="_blank" style="color:inherit">Privacy Policy</a> · ' +
+    '<a href="terms.html" target="_blank" style="color:inherit">Terms of Use</a></div>';
 }
 function switchPersona() {
   S.currentUserId = document.getElementById('personaSel').value;
@@ -577,6 +601,18 @@ function viewUser(el, id) {
   if (!t) { el.innerHTML = '<div class="empty">User not found.</div>'; return; }
   if (t.id === S.currentUserId) { viewProfile(el); return; }
   const u = me();
+  /* blocked users get a minimal page — their content stays hidden from you */
+  if (isBlockedByMe(id)) {
+    el.innerHTML =
+      '<div class="profile-head">' +
+      '<div class="profile-av" style="filter:grayscale(1);opacity:.5">' + (t.avatar.startsWith('data:') ? '<img src="' + t.avatar + '" alt="">' : t.avatar) + '</div>' +
+      '<h1 style="font-size:20px;margin:0">' + userName(t) + '</h1>' +
+      '<div class="muted">@' + esc(t.handle) + '</div>' +
+      '<p class="muted" style="max-width:340px;margin:12px auto">You\'ve blocked this user. Their reviews, comments, and lists are hidden from you.</p>' +
+      '<button class="btn secondary" onclick="toggleBlock(\'' + id + '\')">Unblock</button>' +
+      '</div>';
+    return;
+  }
   const following = u.following.includes(id);
   const theirLists = S.lists.filter(l => l.ownerId === id && (l.privacy === 'public' || (l.privacy === 'friends' && t.followers.includes(u.id))));
   const theirReviews = S.reviews.filter(r => r.userId === id && !r.removed).sort((a, b) => b.ts - a.ts).slice(0, 5);
@@ -593,7 +629,10 @@ function viewUser(el, id) {
     '<div class="stat"><b>' + t.following.length + '</b><span>Following</span></div>' +
     '<div class="stat"><b>' + S.reviews.filter(r => r.userId === id && !r.removed).length + '</b><span>Reviews</span></div>' +
     '</div>' +
+    '<div class="row" style="justify-content:center">' +
     '<button class="btn ' + (following ? 'secondary' : '') + '" onclick="followUser(\'' + id + '\')">' + (following ? '✓ Following' : '＋ Follow') + '</button>' +
+    '<button class="btn small ghost" onclick="if(confirm(\'Block ' + esc(t.name).replace(/'/g, '') + '? Their reviews, comments, and lists will be hidden from you.\'))toggleBlock(\'' + id + '\')">🚫 Block</button>' +
+    '</div>' +
     '</div>' +
     passportCardHtml(id) +
     '<div class="section-title"><span>Lists</span></div>' +

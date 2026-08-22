@@ -1,0 +1,53 @@
+# Codemagic CI: builds the iOS app on a cloud Mac and uploads to TestFlight.
+# One-time setup in the Codemagic UI (codemagic.io):
+#   1. Add this GitHub repo as an app.
+#   2. Teams > Integrations > App Store Connect: add an API key
+#      (App Store Connect > Users and Access > Integrations > new key, role: App Manager).
+#      Name the integration "appstore" (or update the reference below).
+#   3. Create the app record in App Store Connect with bundle ID com.mnfoodiefairguide.app.
+# Then every push to main (or a manual run) produces a TestFlight build.
+workflows:
+  ios-release:
+    name: iOS TestFlight build
+    instance_type: mac_mini_m2
+    max_build_duration: 45
+    integrations:
+      app_store_connect: appstore
+    environment:
+      node: 20
+      xcode: latest
+      vars:
+        BUNDLE_ID: com.mnfoodiefairguide.app
+        APP_STORE_APPLE_ID: 0000000000 # replace with the numeric Apple ID from App Store Connect > App Information
+    scripts:
+      - name: Install dependencies
+        script: npm ci || npm install
+      - name: Build web bundle (www)
+        script: |
+          rm -rf www && mkdir www
+          cp index.html 404.html manifest.webmanifest privacy.html terms.html www/ 2>/dev/null || true
+          cp -R css js assets photos vendor www/
+      - name: Capacitor sync
+        script: npx cap sync ios
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+      - name: Set up keychain and certificates
+        script: |
+          keychain initialize
+          keychain add-certificates
+      - name: Apply provisioning profiles
+        script: |
+          xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa \
+            --project ios/App/App.xcodeproj \
+            --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

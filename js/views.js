@@ -481,7 +481,7 @@ function reviewHtml(r) {
     '<button onclick="toggleCommentBox(\'' + r.id + '\')">Comment · ' + r.comments.length + '</button>' +
     '<button onclick="reportContent(\'review\',\'' + r.id + '\')">Report</button>' +
     '</div>' +
-    r.comments.map(c => {
+    r.comments.filter(c => !isBlockedByMe(c.userId)).map(c => {
       const cu = getUser(c.userId);
       return '<div class="comment">' + avatarHtml(cu, 'av') + '<div><b>' + userName(cu) + '</b> ' + esc(c.text) + ' <span class="muted">' + timeAgo(c.ts) + '</span></div></div>';
     }).join('') +
@@ -611,6 +611,7 @@ function viewLists(el) {
   const sponsored = sponsoredLists().filter(l => l.ownerId !== u.id && !l.collaborators.includes(u.id));
   const spIds = sponsored.map(l => l.id);
   const discover = S.lists.filter(l => l.ownerId !== u.id && !l.collaborators.includes(u.id) && !spIds.includes(l.id) &&
+    !isBlockedByMe(l.ownerId) &&
     (l.privacy === 'public' || (l.privacy === 'friends' && getUser(l.ownerId).followers.includes(u.id))));
   el.innerHTML =
     '<div class="row between"><h1 class="greet" style="margin:4px 0 14px">My Lists</h1>' +
@@ -789,7 +790,7 @@ function viewListDetail(el, id) {
 
     '<div class="section-title"><span>💬 Comments (' + l.comments.length + ')</span></div>' +
     '<div class="card">' +
-    l.comments.map(c => {
+    l.comments.filter(c => !isBlockedByMe(c.userId)).map(c => {
       const cu = getUser(c.userId);
       return '<div class="comment">' + avatarHtml(cu, 'av') + '<div><b>' + userName(cu) + '</b> ' + esc(c.text) + ' <span class="muted">' + timeAgo(c.ts) + '</span></div></div>';
     }).join('') +

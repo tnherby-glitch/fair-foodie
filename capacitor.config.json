@@ -1,0 +1,9 @@
+{
+  "appId": "com.mnfoodiefairguide.app",
+  "appName": "Fair Foodie",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#FAF7F0"
+  }
+}

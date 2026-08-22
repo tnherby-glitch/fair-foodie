@@ -94,8 +94,17 @@ const getList   = id => S.lists.find(l => l.id === id);
 const getReview = id => S.reviews.find(r => r.id === id);
 const me        = () => getUser(S.currentUserId);
 
+/* User blocking (App Store Guideline 1.2: UGC apps must let users block others).
+   Blocking hides the blocked user's reviews, comments, lists, and feed activity
+   from YOUR view — it does not delete their content for anyone else. */
+function myBlockedIds() {
+  const u = me();
+  return (u && u.blockedUsers) || [];
+}
+function isBlockedByMe(userId) { return myBlockedIds().indexOf(userId) >= 0; }
+
 function foodReviews(foodId) {
-  return S.reviews.filter(r => r.foodId === foodId && !r.removed);
+  return S.reviews.filter(r => r.foodId === foodId && !r.removed && !isBlockedByMe(r.userId));
 }
 
 /* Ratings index — rebuilt only when data changes (dataRev), so rendering a page
@@ -135,7 +144,7 @@ function listCountForFood(foodId) {
 
 /* sponsored placements: featured influencer lists, default (pinned) list first */
 function sponsoredLists() {
-  const ls = S.lists.filter(l => l.featured && l.privacy === 'public');
+  const ls = S.lists.filter(l => l.featured && l.privacy === 'public' && !isBlockedByMe(l.ownerId));
   ls.sort((a, b) => ((b.id === S.defaultListId) - (a.id === S.defaultListId)) || b.views - a.views);
   return ls;
 }

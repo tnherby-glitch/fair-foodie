@@ -1,0 +1,15 @@
+{
+  "name": "mn-fair-foodie-finder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MN Fair Foodie Finder — find, rate, and share Minnesota State Fair food.",
+  "scripts": {
+    "build:www": "powershell -ExecutionPolicy Bypass -File tools/build-www.ps1",
+    "sync": "npm run build:www && npx cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0"
+  }
+}

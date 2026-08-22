@@ -1,1 +1,5 @@
-﻿.claude/settings.local.json
+.claude/settings.local.json
+node_modules/
+www/
+ios/App/build/
+ios/DerivedData/
