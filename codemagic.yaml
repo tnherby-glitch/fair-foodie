@@ -19,7 +19,7 @@ workflows:
       vars:
         BUNDLE_ID: com.mnfoodiefairguide.app
         DEVELOPMENT_TEAM: 62KUP5H328 # Apple Developer Team ID
-        APP_STORE_APPLE_ID: 0000000000 # replace with the numeric Apple ID from App Store Connect > App Information (created with the app record)
+        APP_STORE_APPLE_ID: 6804311542 # MN Fair Foodie Finder — App Store Connect app record
     scripts:
       - name: Install dependencies
         script: npm ci || npm install
