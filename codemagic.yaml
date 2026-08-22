@@ -14,7 +14,7 @@ workflows:
     integrations:
       app_store_connect: codemagic
     environment:
-      node: 20
+      node: 24
       xcode: latest
       groups:
         - signing # holds CERTIFICATE_PRIVATE_KEY (added in the Codemagic UI as a secure variable)
