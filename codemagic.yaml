@@ -16,9 +16,8 @@ workflows:
     environment:
       node: 20
       xcode: latest
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.mnfoodiefairguide.app
+      groups:
+        - signing # holds CERTIFICATE_PRIVATE_KEY (added in the Codemagic UI as a secure variable)
       vars:
         BUNDLE_ID: com.mnfoodiefairguide.app
         DEVELOPMENT_TEAM: 62KUP5H328 # Apple Developer Team ID
@@ -33,6 +32,15 @@ workflows:
           cp -R css js assets photos vendor www/
       - name: Capacitor sync
         script: npx cap sync ios
+      - name: Fetch or create signing files
+        script: |
+          # Creates the App Store certificate + provisioning profile on first run,
+          # reuses them afterwards. Requires CERTIFICATE_PRIVATE_KEY (secure var).
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+      - name: Set up keychain and certificates
+        script: |
+          keychain initialize
+          keychain add-certificates
       - name: Apply provisioning profiles
         script: |
           xcode-project use-profiles
