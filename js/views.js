@@ -30,16 +30,17 @@ function viewOnboarding(el) {
     return;
   }
 
+  const nativeApp = typeof isNativeApp === 'function' && isNativeApp();
   el.innerHTML =
     '<div class="onboard">' + mark +
     '<h1>Foodie Finder</h1>' +
     '<p class="muted">Find, rate, and share the best eats at the Great Minnesota Get-Together.</p>' +
     '<div class="card" style="text-align:left">' +
     '<h2 style="font-size:16px;margin:0 0 4px">Create your profile</h2>' +
-    '<p class="muted" style="margin:0 0 12px">' + (realAuth ? 'We\'ll email you a one-tap sign-in link — no password.' : 'Pick a name and jump in.') + '</p>' +
-    oauthButtons() +
+    '<p class="muted" style="margin:0 0 12px">' + (nativeApp ? 'Sign in with your Apple ID — one tap, no password.' : (realAuth ? 'We\'ll email you a one-tap sign-in link — no password.' : 'Pick a name and jump in.')) + '</p>' +
+    (nativeApp ? '' : oauthButtons()) +
     '<label class="field">Display name<input type="text" id="obName" maxlength="30" placeholder="e.g. Corn Dog Connie" value="' + esc(obNameVal) + '"></label>' +
-    (realAuth ? '<label class="field">Email<input type="email" id="obEmail" placeholder="you@example.com" value="' + esc(obEmailVal) + '"></label>' : '') +
+    (realAuth && !nativeApp ? '<label class="field">Email<input type="email" id="obEmail" placeholder="you@example.com" value="' + esc(obEmailVal) + '"></label>' : '') +
     '<div class="field" style="font-size:13px;font-weight:700">Pick an avatar <span class="muted" style="font-weight:400">(or upload a photo, max 5MB)</span>' +
     '<div class="avatar-pick" role="group" aria-label="Choose avatar">' +
     emojis.map(e => '<button type="button" class="' + (obAvatar === e && !obPhoto ? 'on' : '') + '" onclick="obPick(\'' + e + '\')" aria-label="Avatar ' + e + '">' + e + '</button>').join('') +
@@ -47,7 +48,9 @@ function viewOnboarding(el) {
     '<input type="file" id="obFile" accept="image/png,image/jpeg" aria-label="Upload profile photo" onchange="obUpload(this)">' +
     (obPhoto ? '<div class="muted" style="margin-top:6px">✅ Photo uploaded</div>' : '') +
     '</div>' +
-    '<button class="btn block" id="obGo" onclick="obCreate()">' + (realAuth ? 'Email me a sign-in link' : 'Continue') + '</button>' +
+    (nativeApp ?
+      '<button class="btn block" id="obGo" onclick="signInWithAppleNative()"> Continue with Apple</button>' :
+      '<button class="btn block" id="obGo" onclick="obCreate()">' + (realAuth ? 'Email me a sign-in link' : 'Continue') + '</button>') +
     '</div>' +
     demoBlock() + '</div>';
 }

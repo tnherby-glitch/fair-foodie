@@ -45,6 +45,7 @@ function _isIOS() {
 function maybePromptA2HS() {
   try {
     if (document.getElementById('a2hs')) return;
+    if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) return; // already the real app
     if (!S.currentUserId) return;            // only once they're inside the app
     if (_isStandalone()) return;             // already installed
     if (!_isIOS()) return;                    // the manual Share→Add flow is iOS-only

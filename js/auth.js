@@ -140,6 +140,61 @@ async function signInWithProvider(provider) {
   } catch (e) { toast('Could not start sign-in.'); }
 }
 
+/* Running inside the iOS (Capacitor) shell? Native gets the Apple sheet;
+   Google/magic-link stay web-only (they misbehave in embedded webviews). */
+function isNativeApp() {
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+
+/* Native Sign in with Apple: Face ID sheet via the SignInWithApple plugin,
+   then exchange Apple's identity token for a Supabase session.
+   Nonce dance: Apple must receive the SHA-256 of a random nonce; Supabase
+   must receive the raw nonce to verify the token is ours and fresh. */
+async function signInWithAppleNative() {
+  if (!authConfigured() || !isNativeApp()) { toast('Apple sign-in is not available here.'); return; }
+  const plugin = window.Capacitor.Plugins && window.Capacitor.Plugins.SignInWithApple;
+  if (!plugin) { toast('Apple sign-in isn’t available in this build yet.'); return; }
+  try {
+    // capture profile intent from the form (same as the web OAuth path)
+    try {
+      const name = (document.getElementById('obName') || {}).value;
+      localStorage.setItem('ff_signup', JSON.stringify({ name: (name || '').trim() || undefined, avatar: (typeof obPhoto !== 'undefined' && obPhoto) || (typeof obAvatar !== 'undefined' ? obAvatar : undefined) }));
+    } catch (e) {}
+    const raw = _randomNonce();
+    const hashed = await _sha256Hex(raw);
+    const result = await plugin.authorize({
+      clientId: 'com.mnfoodiefairguide.app',
+      redirectURI: appBaseUrl(),
+      scopes: 'email name',
+      nonce: hashed,
+    });
+    const idToken = result && result.response && result.response.identityToken;
+    if (!idToken) { toast('Apple sign-in was cancelled.'); return; }
+    // Apple only shares the name on the FIRST authorization — keep it if present
+    try {
+      const given = result.response.givenName;
+      if (given) {
+        const pending = JSON.parse(localStorage.getItem('ff_signup') || '{}');
+        if (!pending.name) { pending.name = (given + ' ' + (result.response.familyName || '')).trim(); localStorage.setItem('ff_signup', JSON.stringify(pending)); }
+      }
+    } catch (e) {}
+    const { error } = await sbClient.auth.signInWithIdToken({ provider: 'apple', token: idToken, nonce: raw });
+    if (error) { console.warn('apple native', error.message); toast('Apple sign-in failed: ' + error.message); }
+    // success: onAuthStateChange fires SIGNED_IN → applySession → render
+  } catch (e) {
+    if (!/cancel/i.test(String(e))) toast('Apple sign-in didn’t complete.');
+  }
+}
+function _randomNonce() {
+  const a = new Uint8Array(24);
+  (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => { a[i] = Math.floor(Math.random() * 256); });
+  return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+}
+async function _sha256Hex(s) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(d), b => b.toString(16).padStart(2, '0')).join('');
+}
+
 function authIsReal() {
   const u = getUser(S.currentUserId);
   return !!(u && u.real);
