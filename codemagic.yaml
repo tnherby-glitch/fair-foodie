@@ -44,6 +44,15 @@ workflows:
       - name: Apply provisioning profiles
         script: |
           xcode-project use-profiles
+      - name: Bump build number
+        script: |
+          # Each upload to App Store Connect needs a unique build number:
+          # take the latest TestFlight build number and add 1.
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo "0")
+          NEXT=$((${LATEST:-0} + 1))
+          echo "Latest TestFlight build: ${LATEST:-none}; building as: $NEXT"
+          cd ios/App
+          agvtool new-version -all "$NEXT"
       - name: Build IPA
         script: |
           xcode-project build-ipa \
