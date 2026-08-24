@@ -6,7 +6,10 @@ import { mkdirSync } from 'fs';
 
 const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const BASE = 'http://localhost:8899';
-const OUT = 'store/screenshots';
+// pass "ipad" as an argument for 13-inch iPad shots (2064x2752), default iPhone 6.5" (1284x2778)
+const IPAD = process.argv[2] === 'ipad';
+const VIEW = IPAD ? { width: 1032, height: 1376, deviceScaleFactor: 2 } : { width: 428, height: 926, deviceScaleFactor: 3 };
+const OUT = IPAD ? 'store/screenshots-ipad' : 'store/screenshots';
 mkdirSync(OUT, { recursive: true });
 
 const SHOTS = [
@@ -24,7 +27,7 @@ const browser = await puppeteer.launch({
   args: ['--hide-scrollbars', '--force-device-scale-factor=3'],
 });
 const page = await browser.newPage();
-await page.setViewport({ width: 428, height: 926, deviceScaleFactor: 3 });
+await page.setViewport(VIEW);
 
 // boot in demo mode, then sign in as the seeded influencer (richest content)
 await page.goto(BASE + '/?demo=1', { waitUntil: 'networkidle2', timeout: 60000 });

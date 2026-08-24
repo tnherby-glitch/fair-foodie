@@ -203,6 +203,28 @@ async function authSignOut() {
   if (sbClient) { try { await sbClient.auth.signOut(); } catch (e) {} }
   S.currentUserId = null; save();
 }
+/* Permanently delete the signed-in account and all its data (App Store 5.1.1(v)).
+   Server side erases reviews, lists, profile, and the auth user via the
+   delete_account RPC; then we purge the local mirror and sign out. */
+async function deleteAccount() {
+  if (!authIsReal() || !sbClient) { toast('No account to delete.'); return false; }
+  try {
+    const { error } = await sbClient.rpc('delete_account');
+    if (error) { toast('Could not delete account: ' + error.message); return false; }
+    const uid = S.currentUserId;
+    S.reviews = S.reviews.filter(r => r.userId !== uid);
+    S.lists = S.lists.filter(l => l.ownerId !== uid);
+    S.eaten = (S.eaten || []).filter(e => e.userId !== uid);
+    S.users = S.users.filter(u => u.id !== uid);
+    S.currentUserId = null;
+    try { await sbClient.auth.signOut(); } catch (e) {}
+    save();
+    toast('Your account and all its data have been deleted.');
+    location.hash = '#/home'; render();
+    return true;
+  } catch (e) { toast('Could not delete account.'); return false; }
+}
+
 /* push profile edits to the server for a real account */
 function syncProfile() {
   if (!authIsReal() || !sbClient) return;

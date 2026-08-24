@@ -539,9 +539,17 @@ function viewProfile(el) {
       '<div class="row" style="margin-top:2px">' +
       '<button class="btn small ghost grow" onclick="signOut()">Sign out</button>' +
       '</div></div>') +
+    ((typeof authIsReal === 'function' && authIsReal()) ?
+      '<div style="text-align:center;margin-top:10px"><button class="btn small ghost" style="color:#B03A2E" onclick="confirmDeleteAccount()">Delete account</button></div>' : '') +
     '<div class="muted" style="text-align:center;margin:14px 0 4px;font-size:12px">' +
     '<a href="privacy.html" target="_blank" style="color:inherit">Privacy Policy</a> · ' +
     '<a href="terms.html" target="_blank" style="color:inherit">Terms of Use</a></div>';
+}
+/* double-confirm before irreversibly deleting the account (5.1.1(v)) */
+function confirmDeleteAccount() {
+  if (!confirm('Delete your account? This permanently erases your profile, reviews, lists, and check-ins. This cannot be undone.')) return;
+  if (!confirm('Last check: really delete everything?')) return;
+  deleteAccount();
 }
 function switchPersona() {
   S.currentUserId = document.getElementById('personaSel').value;
