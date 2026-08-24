@@ -84,7 +84,7 @@ function mergeAuthUser(profile, email) {
       id: profile.id, name: profile.name || 'Fairgoer', handle: profile.handle || 'fairgoer',
       avatar: profile.avatar || '🙂', role: 'attendee', verified: false,
       bio: profile.bio || 'Here for the food.', email: email || '',
-      followers: [], following: ['u_inf2', 'u_inf1'], badges: [], banned: false, warned: 0, qualityReviews: 0,
+      followers: [], following: ['u_inf2', 'u_inf1'].filter(id => getUser(id)), badges: [], banned: false, warned: 0, qualityReviews: 0,
       real: true, isAdmin: !!profile.is_admin, role: profile.is_admin ? 'admin' : 'attendee',
     };
     S.users.push(u);

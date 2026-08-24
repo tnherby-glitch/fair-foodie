@@ -6,7 +6,7 @@
 /* global CATALOG, localStorage */
 
 const DB_KEY = 'fairfoodie_user_v1';
-const DATA_VERSION = 15;
+const DATA_VERSION = 16;
 let S = null;      // global app state (user state + in-memory catalog)
 let dataRev = 0;   // bumped on every save so cached indexes can invalidate
 
@@ -24,7 +24,7 @@ const store = (() => {
 /* keys persisted to localStorage — catalog arrays are never persisted */
 const USER_KEYS = ['version', 'currentUserId', 'defaultListId', 'users', 'reviews', 'lists', 'baseRatings',
   'reports', 'vendorRequests', 'activity', 'notifications', 'challenges', 'pushLog',
-  'analytics', 'amenities', 'foodOverrides', 'vendorOverrides', 'eaten'];
+  'analytics', 'amenities', 'foodOverrides', 'vendorOverrides', 'eaten', 'demoSeed'];
 
 let foodIdx = null, vendorIdx = null;
 
@@ -51,7 +51,9 @@ function buildCatalogState() {
 function loadState() {
   let us = null;
   try { us = JSON.parse(store.getItem(DB_KEY)); } catch (e) { us = null; }
-  if (!us || us.version !== DATA_VERSION) us = seedUserState();
+  const wantDemo = typeof demoMode === 'function' && demoMode();
+  // reseed on version bump OR when demo mode is toggled (demo/production seeds differ)
+  if (!us || us.version !== DATA_VERSION || !!us.demoSeed !== wantDemo) us = seedUserState();
   S = us;
   if (!S.foodOverrides) S.foodOverrides = {};
   if (!S.vendorOverrides) S.vendorOverrides = {};
@@ -206,8 +208,12 @@ function findVendorFoodId(vendorQ) {
   return f ? f.id : null;
 }
 
-/* ---------- seed: demo users + social content on top of the real catalog ---------- */
+/* ---------- seed ----------
+   PRODUCTION seed = Allison + her real 2026 list, nothing fabricated.
+   DEMO mode (?demo=1) additionally seeds the fake cast, reviews, baselines,
+   and social counts for walkthroughs and pitches. */
 function seedUserState() {
+  const demo = typeof demoMode === 'function' && demoMode();
   const now = Date.now();
   const H = 3600e3, D = 24 * H;
 
@@ -219,6 +225,14 @@ function seedUserState() {
     { id: 'u_reg1',  name: 'Curd Nerd',         handle: 'curdnerd',     avatar: '🧀', role: 'attendee',   verified: false, bio: 'Squeak connoisseur.', followers: ['u_blog1'], following: ['u_inf1'], badges: [], banned: false, warned: 0, qualityReviews: 8 },
     { id: 'u_reg2',  name: 'Sky Glider Sam',    handle: 'skygliders',   avatar: '🚡', role: 'attendee',   verified: false, bio: 'I judge the fair from above.', followers: [], following: ['u_inf1'], badges: [], banned: false, warned: 0, qualityReviews: 3 },
   ];
+  if (!demo) {
+    // production: only Allison, with honest (empty) social counters
+    users.splice(0, users.length, {
+      id: 'u_inf2', name: 'Allison', handle: 'allisoneats', avatar: '🌟', role: 'influencer', verified: true,
+      bio: 'MN\'s fair food authority. My crawl list is your day-one plan.',
+      followers: [], following: [], badges: ['Verified'], banned: false, warned: 0, qualityReviews: 0,
+    });
+  }
 
   /* resolve real catalog ids for seeded content */
   const F = findFoodId, V = findVendorId;
@@ -258,7 +272,7 @@ function seedUserState() {
     { id: 'r10', foodId: idWalleye,    userId: 'u_inf1',  rating: 4, text: 'Walleye at the fair is the classiest thing you can eat while standing next to a llama barn. Crispy edges, tender center.', photos: [], likes: [], comments: [], reported: false, removed: false, ts: now - 3.5 * D, vendorResponse: null },
     { id: 'r11', foodId: idPretzel,    userId: 'u_reg1',  rating: 3, text: 'The Butter Brew Mustache Pretzel is cute and the butterscotch-caramel sugar is nice, but it leans very sweet for a pretzel. The soft-serve dip carries it. Split one.', photos: [], likes: [], comments: [], reported: false, removed: false, ts: now - 0.3 * D, vendorResponse: null },
     { id: 'r12', foodId: idMiniDonut,  userId: 'u_blog1', rating: 4, text: 'Mini donuts: eternal. Hot, cinnamon-sugared, gone in minutes. The bucket format is a trap and I fall for it every year.', photos: [], likes: ['u_reg2'], comments: [], reported: false, removed: false, ts: now - 5 * D, vendorResponse: null },
-  ].filter(r => r.foodId);
+  ].filter(r => r.foodId && demo); // fabricated reviews exist only in demo mode
 
   const officialIds = CATALOG.foods.filter(f => f.official).map(f => f.id);
   const ids = arr => arr.filter(Boolean);
@@ -318,10 +332,10 @@ function seedUserState() {
     F("Surf 'N' Turf Burger", 'Caribe'),                 // 50
   ]);
 
-  /* Community baseline ratings (aggregate texture; Blue Ribbon = 4.8+ & 100+ only).
-     Exactly three foods earn the ribbon at seed time. */
+  /* Demo-only community baseline ratings (aggregate texture; Blue Ribbon = 4.8+ & 100+).
+     Production has NO fabricated ratings — pup scores build from real reviews. */
   const baseRatings = {};
-  const setBase = (id, avg, count) => { if (id) baseRatings[id] = { avg, count }; };
+  const setBase = (id, avg, count) => { if (id && demo) baseRatings[id] = { avg, count }; };
   setBase(idProntoPup, 4.9, 2100);                       // 🏆 ribbon
   setBase(F('Sweet Corn On-The-Cob', 'Corn Roast'), 4.8, 1150); // 🏆 ribbon
   setBase(idLumpia, 4.9, 320);                            // 🏆 ribbon — new-food winner
@@ -339,22 +353,29 @@ function seedUserState() {
   setBase(F('The Amish Doughnut', 'Peachey'), 4.6, 820);
 
   const lists = [
-    { id: 'l0', slug: 'allisons-2026-fair-list', name: 'Allison\'s 2026 Fair List', ownerId: 'u_inf2', foodIds: allison2026, privacy: 'public', featured: true, likes: ['u_inf1', 'u_blog1', 'u_reg1', 'u_reg2'], ratings: { u_reg1: 5, u_reg2: 5, u_blog1: 5, u_inf1: 4 }, views: 9214, comments: [], collaborators: [], ts: now - 7 * D },
+    { id: 'l0', slug: 'allisons-2026-fair-list', name: 'Allison\'s 2026 Fair List', ownerId: 'u_inf2', foodIds: allison2026, privacy: 'public', featured: true,
+      likes: demo ? ['u_inf1', 'u_blog1', 'u_reg1', 'u_reg2'] : [], ratings: demo ? { u_reg1: 5, u_reg2: 5, u_blog1: 5, u_inf1: 4 } : {}, views: demo ? 9214 : 0,
+      comments: [], collaborators: [], ts: now - 7 * D },
+  ];
+  if (demo) lists.push(
     { id: 'l1', slug: 'maddys-top-10-must-eats-2026', name: 'Maddy\'s Top 10 Must-Eats 2026', ownerId: 'u_inf1', foodIds: ids([idProntoPup, idCurds, idCornRibs, idChocChip, idLumpia, idWalleye, idRoastCorn, idMiniDonut, idPicklePie, idMilk]), privacy: 'public', featured: true, likes: ['u_reg1', 'u_reg2', 'u_blog1'], ratings: { u_reg1: 5, u_reg2: 5, u_blog1: 4 }, views: 4821, comments: [{ id: 'lc1', userId: 'u_reg1', text: 'Used this list all day Saturday — flawless routing!', ts: now - 1 * D }], collaborators: [], ts: now - 6 * D },
     { id: 'l2', slug: 'new-this-year-worth-the-hype', name: '8 New Foods Worth the Hype 🔥', ownerId: 'u_inf1', foodIds: ids([idPicklePie, idCornRibs, idLumpia, idHmong, idElote, idPeriPeri, idSparkler, idDillCookie]).length >= 4 ? ids([idPicklePie, idCornRibs, idLumpia, idHmong, idElote, idPeriPeri, idSparkler, idDillCookie]) : officialIds.slice(0, 8), privacy: 'public', featured: true, likes: ['u_blog1'], ratings: { u_blog1: 4, u_reg2: 4 }, views: 2214, comments: [], collaborators: [], ts: now - 4 * D },
     { id: 'l3', name: 'Ole\'s Classic Circuit', ownerId: 'u_blog1', foodIds: ids([idProntoPup, idMilk, idRoastCorn, idCurds, idMiniDonut]), privacy: 'public', featured: false, likes: ['u_reg1'], ratings: { u_reg1: 4 }, views: 640, comments: [], collaborators: [], ts: now - 3 * D },
-    { id: 'l4', name: 'Kids Will Love', ownerId: 'u_reg1', foodIds: ids([idChocChip, idMilk, idMiniDonut, F('lemonade')]), privacy: 'friends', featured: false, likes: [], ratings: {}, views: 25, comments: [], collaborators: [], ts: now - 2 * D },
-  ];
+    { id: 'l4', name: 'Kids Will Love', ownerId: 'u_reg1', foodIds: ids([idChocChip, idMilk, idMiniDonut, F('lemonade')]), privacy: 'friends', featured: false, likes: [], ratings: {}, views: 25, comments: [], collaborators: [], ts: now - 2 * D }
+  );
 
   const reports = reviews.some(r => r.id === 'r9')
     ? [{ id: 'rep1', type: 'review', targetId: 'r9', reason: 'Harassment / inappropriate language toward vendor', reporterId: 'u_blog1', status: 'pending', ts: now - 0.5 * D }]
     : [];
 
-  const activity = [
+  const activity = demo ? [
     { id: 'a1', userId: 'u_inf1',  text: 'reviewed Pickle Pie — 4 Pups', link: '#/food/' + idPicklePie, ts: now - 1.2 * D },
     { id: 'a2', userId: 'u_reg1',  text: 'reviewed Longanisa Cheese Curd Lumpia — 5 Pups', link: '#/food/' + idLumpia, ts: now - 0.5 * D },
     { id: 'a3', userId: 'u_blog1', text: 'created list "Ole\'s Classic Circuit"', link: '#/list/l3', ts: now - 3 * D },
     { id: 'a4', userId: 'u_inf1',  text: 'published featured list "8 New Foods Worth the Hype 🔥"', link: '#/list/l2', ts: now - 4 * D },
+  ] : [
+    // production: the one true event — Allison published her list
+    { id: 'a1', userId: 'u_inf2', text: 'published featured list "Allison\'s 2026 Fair List"', link: '#/list/l0', ts: now - 7 * D },
   ];
 
   /* amenity markers in real lat/long (approximate spots inside the grounds) */
@@ -371,16 +392,16 @@ function seedUserState() {
     version: DATA_VERSION,
     currentUserId: null,
     defaultListId: 'l0', // Allison's list — the default sponsored placement for every user
+    demoSeed: demo,
     users, reviews, lists, reports, activity, amenities, baseRatings,
-    // demo passport: Allison has checked in 32 items (a Ribbon-Worthy Ruminant),
-    // spread ~40 min apart so the log looks lived-in
-    eaten: allison2026.slice(0, 32).map((fid, i) => ({ userId: 'u_inf2', foodId: fid, ts: now - i * 2400000 })),
+    // demo-only passport: Allison shows 32 check-ins so the Passport reads lived-in
+    eaten: demo ? allison2026.slice(0, 32).map((fid, i) => ({ userId: 'u_inf2', foodId: fid, ts: now - i * 2400000 })) : [],
     vendorRequests: [],
     foodOverrides: {},
     vendorOverrides,
-    notifications: [
+    notifications: demo ? [
       { id: 'n1', userId: 'u_inf1', text: 'Curd Nerd commented on your list "Maddy\'s Top 10 Must-Eats 2026"', link: '#/list/l1', ts: now - 1 * D, read: false },
-    ],
+    ] : [],
     challenges: [
       { id: 'ch1', text: 'Daily Challenge: Try 3 deep-fried foods today', progressCat: 'Deep Fried', goal: 3 },
     ],
