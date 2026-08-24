@@ -14,20 +14,21 @@ const BACKEND = {
   oauthProviders: ['google', 'apple'],
 };
 
-/* Demo mode surfaces the one-tap personas, the profile persona switcher, and
-   the seeded analytics numbers. It's OFF for production so real visitors only
-   see real sign-in. For a pitch or walkthrough, append ?demo=1 to any URL
-   (?demo=0 forces it off); the choice is remembered on that device. */
+/* Demo mode surfaces the one-tap personas, the fake demo cast, and the sample
+   analytics. OFF for production. For a pitch, append ?demo=1 to the URL —
+   demo lasts only for that browser session (closing the tab ends it), so no
+   visitor can get permanently stuck seeing demo content. */
 const APP = { demo: false };
 function demoMode() {
   try {
+    localStorage.removeItem('ff_demo'); // migrate away the old persistent flag
     const q = new URLSearchParams(location.search);
     if (q.has('demo')) {
       const on = q.get('demo') !== '0';
-      localStorage.setItem('ff_demo', on ? '1' : '0');
+      sessionStorage.setItem('ff_demo', on ? '1' : '0');
       return on;
     }
-    const saved = localStorage.getItem('ff_demo');
+    const saved = sessionStorage.getItem('ff_demo');
     if (saved !== null) return saved === '1';
   } catch (e) {}
   return !!APP.demo;
