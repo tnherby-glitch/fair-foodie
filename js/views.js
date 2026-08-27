@@ -477,7 +477,7 @@ function reviewHtml(r) {
     '<div class="review-head">' + avatarHtml(ru, 'av') +
     '<div class="grow"><b>' + nameHtml + '</b>' +
     '<div class="muted">' + timeAgo(r.ts) + '</div></div>' + pups(r.rating) + '</div>' +
-    '<div style="font-size:14px">' + esc(r.text) + '</div>' +
+    (r.text ? '<div style="font-size:14px">' + esc(r.text) + '</div>' : '') +
     (r.photos.length ? '<div class="review-photos">' + r.photos.map(p => '<img src="' + p + '" alt="Review photo">').join('') + '</div>' : '') +
     '<div class="review-actions">' +
     '<button class="' + (liked ? 'on' : '') + '" aria-pressed="' + liked + '" onclick="likeReview(\'' + r.id + '\')">Helpful · ' + r.likes.length + '</button>' +
@@ -544,13 +544,13 @@ function openRateModal(foodId) {
     [1, 2, 3, 4, 5].map(i => '<button type="button" role="radio" aria-checked="false" aria-label="' + i + ' Pronto Pup' + (i > 1 ? 's' : '') + '" onclick="setRate(' + i + ')">' + pupSvg() + '</button>').join('') +
     '</div>' +
     '<div class="muted" id="rateHint" style="margin:4px 0 10px">Tap the pups! 1 = skip it · 5 = fair legend</div>' +
-    '<label class="field">Your review <span class="muted">(10–500 characters)</span>' +
+    '<label class="field">Add a review <span class="muted">(optional)</span>' +
     '<textarea id="revText" maxlength="500" placeholder="How was it? Crunch level? Line length? Regrets?"></textarea></label>' +
     '<div class="muted" id="charCount" style="margin:-6px 0 10px">0 / 500</div>' +
     '<div class="field" style="font-weight:700;font-size:13px">Photos <span class="muted">(up to 3)</span><br>' +
     '<input type="file" accept="image/png,image/jpeg" onchange="addRatePhoto(this)" aria-label="Add review photo"></div>' +
     '<div class="review-photos" id="ratePhotoRow"></div>' +
-    '<button class="btn block" onclick="submitReview(\'' + foodId + '\')">Post review</button>',
+    '<button class="btn block" onclick="submitReview(\'' + foodId + '\')">Post rating</button>',
     root => {
       root.querySelector('#revText').addEventListener('input', e => {
         root.querySelector('#charCount').textContent = e.target.value.length + ' / 500';
@@ -577,7 +577,7 @@ function addRatePhoto(input) {
 function submitReview(foodId) {
   const text = document.getElementById('revText').value.trim();
   if (!rateVal) { toast('Pick a Pronto Pup rating first'); return; }
-  if (text.length < 10) { toast('Review must be at least 10 characters'); return; }
+  // review text is optional — a pup rating alone is a valid submission
   const u = me();
   const r = { id: uid('r'), foodId, userId: u.id, rating: rateVal, text, photos: ratePhotos.slice(), likes: [], comments: [], reported: false, removed: false, ts: Date.now(), vendorResponse: null };
   S.reviews.push(r);
@@ -597,14 +597,15 @@ function submitReview(foodId) {
       dataRev++; save(); render();
     });
   }
-  u.qualityReviews++;
-  /* PRD: Blogger badge after 25 quality reviews */
-  if (u.qualityReviews >= 25 && !u.badges.includes('Blogger')) { u.badges.push('Blogger'); pushToast('🏅 Badge earned: Blogger!'); }
+  if (text.length >= 10) {
+    u.qualityReviews++; // only written reviews count toward the Blogger badge
+    if (u.qualityReviews >= 25 && !u.badges.includes('Blogger')) { u.badges.push('Blogger'); pushToast('🏅 Badge earned: Blogger!'); }
+  }
   const f = getFood(foodId);
-  logActivity(u.id, 'reviewed ' + f.name + ' — ' + rateVal + ' Pups', '#/food/' + foodId);
-  u.followers.forEach(fid => notify(fid, u.name + ' reviewed ' + f.name + ' (' + rateVal + ' Pups)', '#/food/' + foodId));
+  logActivity(u.id, 'rated ' + f.name + ' — ' + rateVal + ' Pups', '#/food/' + foodId);
+  u.followers.forEach(fid => notify(fid, u.name + ' rated ' + f.name + ' (' + rateVal + ' Pups)', '#/food/' + foodId));
   save(); closeModal(); render();
-  toast('Review posted — thanks for feeding the community! 🎪');
+  toast(text ? 'Review posted — thanks for feeding the community! 🎪' : 'Rated ' + rateVal + ' Pups — thanks! 🌭');
 }
 
 /* ================= LISTS ================= */
